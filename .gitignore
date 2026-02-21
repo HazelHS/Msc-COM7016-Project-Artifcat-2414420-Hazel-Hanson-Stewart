@@ -1,0 +1,7 @@
+Dataset_Modules/dataset_charts
+Dataset_Modules/dataset_output
+/papers
+/old_code_ignore
+/__pycache__
+/AI_Modules/xLSTM_TS_Model/__pycache__
+/AI_Modules/Model_Map_Diagram/Model_Map_output

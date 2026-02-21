@@ -1,0 +1,87 @@
+Proposed data collection libraries:
+
+	Yahoo Finance (yfinance) || REQUIRED DOCKER OR WSL !! https://github.com/defeat-beta/defeatbeta-api [pip install defeatbeta-api] !! " yahoo finace, just cached on hugging face to avoid rate limits" + "data that Yahoo Finance does not have. includes TTM EPS, TTM PE, Earnings call transcripts, Revenue by segment and Revenue by geography etc."
+	# pip install pandas yfinance requests numpy matplotlib PyWavelets seaborn scikit-learn scipy statsmodels tqdm ipywidgets boruta visualkeras pydot pillow torch duckdb psutil  pyfiglet  urllib3 tabulate rich  openai  nltk  datasets huggingface_hub pyarrow ipython mcp	
+	Blockchain.com API (api.blockchain.info)
+	alternative.me (fear and greed index agregator)
+	finnhub - forex news (client.economic_calendar)
+	tushare.pro - chinese market stuff (including news)
+
+What to use them for?:
+
+		1. Yahoo Finance (yfinance)
+	BTC Volume / BTC/USD
+	Gold/BTC Ratio
+	Currency Gold Futures
+	Volatility_Crude Oil Volatility Index (OVX)
+	Volatility_CBOE Volatility Index (VIX)
+	Volatility_CBOE SKEW Index
+	Currency US Dollar Index
+	Global averaged stocks (volume)
+	Global averaged stocks(USD)
+
+		2. Blockchain.com API (api.blockchain.info)
+	Onchain Median Confirmation Time (min)
+	Onchain Transaction Fees (BTC)
+	Onchain Mining Difficulty
+	Onchain Hash Rate (GH/s)
+	Onchain Transaction Count
+	Onchain Active Addresses
+	S2F Model
+
+		Crypto sentiment:
+			https://alternative.me/crypto/fear-and-greed-index/#api
+			API: https://api.alternative.me/
+		- Volatility (25 %)
+		- Market Momentum/Volume (25%)
+		- Social Media (15%)
+		- Surveys (15%) currently paused
+		- Dominance (10%)
+		- Trends (10%)
+
+
+important to look at later: https://www.reddit.com/r/algotrading/comments/1im4rcc/i_made_a_python_package_to_calculate/
+
+
+Software design / requirements / notes:
+
+GUI:
+	dataset:
+		- select/add each ticket to be added to the dataset
+			further customization/visualization:
+				- timeframe to collect, data completeness, outliers etc (all the usual data science stuff)
+				- pad with synthetic data
+				- apply mean/interpolation
+				- pad custom algorithm
+				- show estimated dataset health:
+					- % data synthetic
+					- % data processed
+					- % data relevance to target
+					- overal score of data 
+		- create custom synthetic data and other algorithms for application to ticket information 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

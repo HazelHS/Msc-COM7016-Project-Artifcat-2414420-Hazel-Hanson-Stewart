@@ -1,0 +1,18 @@
+pandas
+yfinance
+requests
+numpy
+matplotlib
+PyWavelets
+seaborn
+scikit-learn
+scipy
+statsmodels
+tqdm
+ipywidgets
+boruta
+visualkeras
+pydot
+pillow
+torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
+torchviz
