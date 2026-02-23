@@ -5,3 +5,6 @@ Dataset_Modules/dataset_output
 /__pycache__
 /AI_Modules/xLSTM_TS_Model/__pycache__
 /AI_Modules/Model_Map_Diagram/Model_Map_output
+/Dataset_Modules/Dataset_Processor.py
+/Dataset_Modules/Dataset_Collector_Crypto.py
+/AI_Modules/Model_Map_Diagram/Model_Diagram_output

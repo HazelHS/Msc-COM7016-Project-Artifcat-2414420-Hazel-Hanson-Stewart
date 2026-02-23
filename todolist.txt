@@ -1,0 +1,5 @@
+- make sure works:
+	- dataset_collector_Crypto.py 
+	- dataset_Processor.py
+
+- Start making Model_Designer.py 
