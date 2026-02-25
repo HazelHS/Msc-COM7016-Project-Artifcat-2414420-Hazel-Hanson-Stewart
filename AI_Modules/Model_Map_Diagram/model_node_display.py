@@ -154,7 +154,9 @@ COLOR_MAP: dict[str, str] = {
     "MultiheadAttention": "#F0C030",   # yellow/gold  — attention
     "LSTM":               "#E07070",   # salmon/red   — LSTM
     "Linear":             "#A8C8E8",   # light blue   — linear / dense
-    "ReLU":               "#FFD580",   # light amber  — activation
+    "ReLU":               "#FFD580",   # light amber  — ReLU activation
+    "ELU":                "#FFB347",   # darker amber — ELU activation (mLSTM gating)
+    "Tanh":               "#B0E0E6",   # powder blue  — Tanh (attention scoring)
     "Dropout":            "#D0D0D0",   # light grey   — dropout
     "Sequential":         "#E8C8A8",   # peach        — sequential wrapper
     "ModuleList":         "#A8E8C8",   # mint         — module list
@@ -172,6 +174,8 @@ LEGEND_LABELS: dict[str, str] = {
     "LSTM":               "LSTM",
     "Linear":             "Linear / Dense",
     "ReLU":               "ReLU Activation",
+    "ELU":                "ELU Activation (exp. gating)",
+    "Tanh":               "Tanh (attention scoring)",
     "Dropout":            "Dropout",
     "Sequential":         "Sequential",
     "ModuleList":         "ModuleList (per-IMF TCNs)",
