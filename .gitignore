@@ -1,7 +1,6 @@
 Dataset_Modules/dataset_charts
 Dataset_Modules/dataset_output
 Dataset_Modules/Dataset_Processing_Methods
-Dataset_Modules/Dataset_Collection
 /papers
 /old_code_ignore
 /__pycache__
@@ -10,3 +9,4 @@ Dataset_Modules/Dataset_Collection
 /AI_Modules/Model_Map_Diagram/Model_Diagram_output
 /Interface_Modules/__pycache__
 /AI_Modules/Model_Designs/__pycache__
+/Dataset_Modules/Dataset_Collection/__pycache__

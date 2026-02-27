@@ -1,0 +1,70 @@
+"""
+__blockchain_utils.py
+---------------------
+Shared helper for fetching a single time-series chart from the
+Blockchain.info public API and aligning it to a daily DatetimeIndex.
+Hidden from the UI discover_scripts list because it starts with __.
+"""
+
+from datetime import datetime
+import requests
+import pandas as pd
+
+BLOCKCHAIN_API_BASE = "https://api.blockchain.info"
+
+
+def fetch_blockchain_metric(
+    metric_endpoint: str,
+    start_date: str,
+    end_date: str,
+    date_range: pd.DatetimeIndex,
+) -> pd.Series:
+    """
+    Fetch the chart at *metric_endpoint* (e.g. 'charts/hash-rate') from the
+    Blockchain.info API and return a Series re-indexed to *date_range*.
+    Returns an empty Series filled with NaN on any error.
+    """
+    start_ts = int(datetime.strptime(start_date, "%Y-%m-%d").timestamp())
+    end_ts   = int(datetime.strptime(end_date,   "%Y-%m-%d").timestamp())
+
+    url    = f"{BLOCKCHAIN_API_BASE}/{metric_endpoint}"
+    params = {
+        "timespan": "all",
+        "start":    start_ts,
+        "end":      end_ts,
+        "format":   "json",
+        "sampled":  "true",
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=30)
+    except requests.RequestException as exc:
+        print(f"    Request failed for {metric_endpoint}: {exc}")
+        return pd.Series(index=date_range, dtype=float)
+
+    if response.status_code != 200:
+        print(f"    HTTP {response.status_code} for {metric_endpoint}")
+        return pd.Series(index=date_range, dtype=float)
+
+    data = response.json()
+    if not isinstance(data, dict) or "values" not in data:
+        return pd.Series(index=date_range, dtype=float)
+
+    timestamps, values = [], []
+    for entry in data["values"]:
+        if isinstance(entry, (list, tuple)) and len(entry) >= 2:
+            timestamps.append(entry[0])
+            values.append(float(entry[1]))
+        elif isinstance(entry, dict) and "x" in entry and "y" in entry:
+            timestamps.append(entry["x"])
+            values.append(float(entry["y"]))
+
+    if not values:
+        return pd.Series(index=date_range, dtype=float)
+
+    tmp = pd.DataFrame({"timestamp": timestamps, "value": values})
+    tmp["timestamp"] = pd.to_datetime(tmp["timestamp"], unit="s").dt.normalize()
+    tmp = tmp.drop_duplicates("timestamp", keep="last").set_index("timestamp")
+    tmp["value"] = tmp["value"].astype("float64")
+
+    return tmp["value"].reindex(date_range)

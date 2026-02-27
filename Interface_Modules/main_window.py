@@ -9,8 +9,7 @@ multi-script selection ("Dataset Collection Method",
 "Configure" button that opens a checklist window; the remaining
 stages use a combobox for single-script selection.
 
-A "Run" button per stage and a "Run All" button in the action bar
-execute every selected script sequentially in order.
+A "Run" button per stage executes that stage's selected scripts sequentially.
 """
 
 import tkinter as tk
@@ -21,6 +20,7 @@ import queue
 import collections
 import os
 import sys
+import pandas as pd
 
 
 # ── Project root (two levels up from this file) ─────────────────────
@@ -54,23 +54,50 @@ def discover_scripts(directory: str) -> list[str]:
 
 # ── Configure-window for multi-select stages ─────────────────────────
 
+FREQ_OPTIONS: list[str] = [
+    # ── Intraday ────────────────
+    "1m", "2m", "5m", "15m", "30m", "90m", "1h",
+    # ── Daily / coarser ─────────
+    "1d", "5d", "1wk", "1mo", "3mo",
+]
+
+# Labels for which the Configure window shows the date/frequency panel.
+_DATE_CONFIG_STAGES: set[str] = {"Dataset Collection Method"}
+
+
 class ConfigureWindow:
     """
     Toplevel window that lists all .py scripts in a directory with
     a checkbox next to each one.  The caller reads back `stage["selected"]`
     (a set of filenames) after the window is closed.
+
+    For Dataset Collection stages an extra panel is shown at the bottom
+    with start/end date inputs and a frequency drop-down.
     """
 
     def __init__(self, parent: tk.Widget, stage: dict) -> None:
         self._stage = stage
+        self._show_date_config: bool = stage.get("label_text", "") in _DATE_CONFIG_STAGES
+
+        # Seed defaults into the stage dict on first open
+        if self._show_date_config:
+            stage.setdefault("start_date", "2015-01-01")
+            stage.setdefault("end_date",   "2025-02-01")
+            stage.setdefault("freq",       "1d")
 
         self._win = tk.Toplevel(parent)
         self._win.title(f"Configure: {stage['label_text']}")
         self._win.resizable(False, True)
-        self._win.minsize(420, 200)
+        self._win.minsize(460, 220)
         self._win.grab_set()           # modal
 
         self._check_vars: dict[str, tk.BooleanVar] = {}
+
+        # Date/freq tk variables (only created when _show_date_config is True)
+        self._start_var: tk.StringVar | None = None
+        self._end_var:   tk.StringVar | None = None
+        self._freq_var:  tk.StringVar | None = None
+
         self._build()
 
     # ── Build ──────────────────────────────────────────────────────────
@@ -100,14 +127,56 @@ class ConfigureWindow:
         self._canvas = canvas
         self._populate_checks()
 
+        # ── Date / frequency panel (Dataset Collection only) ───────────
+        if self._show_date_config:
+            self._build_date_panel(outer)
+
         # Buttons row
         btn_row = ttk.Frame(outer)
-        btn_row.pack(fill="x")
+        btn_row.pack(fill="x", pady=(8, 0))
 
         ttk.Button(btn_row, text="Select All",   command=self._select_all,   width=12).pack(side="left")
         ttk.Button(btn_row, text="Deselect All", command=self._deselect_all, width=12).pack(side="left", padx=(4, 0))
         ttk.Button(btn_row, text="↺ Refresh",    command=self._refresh,      width=10).pack(side="left", padx=(4, 0))
         ttk.Button(btn_row, text="OK",           command=self._ok,           width=8).pack(side="right")
+
+    def _build_date_panel(self, parent: ttk.Frame) -> None:
+        """Add start/end date entries and a frequency combobox."""
+        date_frame = ttk.LabelFrame(parent, text="Date Range & Frequency", padding=(8, 6))
+        date_frame.pack(fill="x", pady=(0, 6))
+
+        date_frame.columnconfigure(1, weight=1)
+        date_frame.columnconfigure(3, weight=1)
+
+        # ── Start date ─────────────────────────────────────────────────
+        ttk.Label(date_frame, text="Start Date (YYYY-MM-DD):").grid(
+            row=0, column=0, sticky="w", padx=(0, 6), pady=3
+        )
+        self._start_var = tk.StringVar(value=self._stage.get("start_date", "2015-01-01"))
+        start_entry = ttk.Entry(date_frame, textvariable=self._start_var, width=14)
+        start_entry.grid(row=0, column=1, sticky="ew", pady=3)
+
+        # ── End date ───────────────────────────────────────────────────
+        ttk.Label(date_frame, text="End Date (YYYY-MM-DD):").grid(
+            row=0, column=2, sticky="w", padx=(12, 6), pady=3
+        )
+        self._end_var = tk.StringVar(value=self._stage.get("end_date", "2025-02-01"))
+        end_entry = ttk.Entry(date_frame, textvariable=self._end_var, width=14)
+        end_entry.grid(row=0, column=3, sticky="ew", pady=3)
+
+        # ── Frequency ──────────────────────────────────────────────────
+        ttk.Label(date_frame, text="Data Frequency:").grid(
+            row=1, column=0, sticky="w", padx=(0, 6), pady=3
+        )
+        self._freq_var = tk.StringVar(value=self._stage.get("freq", "1d"))
+        freq_combo = ttk.Combobox(
+            date_frame,
+            textvariable=self._freq_var,
+            values=FREQ_OPTIONS,
+            state="readonly",
+            width=14,
+        )
+        freq_combo.grid(row=1, column=1, sticky="w", pady=3)
 
     def _populate_checks(self) -> None:
         """Destroy existing checkboxes and rebuild from directory listing."""
@@ -147,10 +216,14 @@ class ConfigureWindow:
         self._populate_checks()
 
     def _ok(self) -> None:
-        """Commit checked scripts back to the stage and close."""
+        """Commit checked scripts and (optionally) date/freq back to the stage."""
         self._stage["selected"] = {
             name for name, var in self._check_vars.items() if var.get()
         }
+        if self._show_date_config:
+            self._stage["start_date"] = self._start_var.get().strip()
+            self._stage["end_date"]   = self._end_var.get().strip()
+            self._stage["freq"]       = self._freq_var.get()
         self._stage["status_var"].set(self._status_text())
         self._win.destroy()
 
@@ -174,7 +247,7 @@ class MainWindow:
         self._process: subprocess.Popen | None = None
         # Live output lines → console
         self._output_queue: queue.Queue[str | None] = queue.Queue()
-        # Sequential run queue (for Run All)
+        # Sequential run queue
         # Each entry: (script_path: str, extra_args: list[str])
         self._run_queue: collections.deque[tuple[str, list[str]]] = collections.deque()
 
@@ -330,14 +403,6 @@ class MainWindow:
         action_bar = ttk.Frame(self.root, padding=(8, 6))
         action_bar.grid(row=2, column=0, sticky="ew")
 
-        self.run_all_btn = ttk.Button(
-            action_bar,
-            text="▶▶  Run All",
-            command=self._on_run_all,
-            width=14,
-        )
-        self.run_all_btn.pack(side="left")
-
         self.stop_btn = ttk.Button(
             action_bar,
             text="■  Stop",
@@ -393,7 +458,6 @@ class MainWindow:
     def _set_running(self, is_running: bool) -> None:
         """Toggle button states and update status label."""
         state = "disabled" if is_running else "normal"
-        self.run_all_btn.config(state=state)
         self.stop_btn.config(state="normal" if is_running else "disabled")
         for stage in self._stages:
             stage["run_btn"].config(state=state)
@@ -444,45 +508,51 @@ class MainWindow:
                 tag="error",
             )
             return
+
+        # Build extra CLI args for stages that carry date/freq config
+        extra: list[str] = []
+        if stage.get("label_text", "") in _DATE_CONFIG_STAGES:
+            start = stage.get("start_date", "2015-01-01")
+            end   = stage.get("end_date",   "2025-02-01")
+            freq  = stage.get("freq",       "1d")
+            extra = ["--start", start, "--end", end, "--freq", freq]
+
         self._run_queue.clear()
         for name in selected:
-            self._run_queue.append((os.path.join(stage["dir"], name), []))
+            self._run_queue.append((os.path.join(stage["dir"], name), list(extra)))
+
+        # For Dataset Collection stages, queue a post-run merge step that
+        # combines all individual CSVs into one consolidated file.
+        if stage.get("label_text", "") in _DATE_CONFIG_STAGES:
+            self._run_queue.append((None, lambda s=stage: self._merge_collection_csvs(s)))
+
         self._log(
             f"\n=== Running {len(selected)} script(s) from '{stage['label_text']}' ===\n",
             tag="head",
         )
         self._start_next()
 
-    def _on_run_all(self) -> None:
-        """Queue every stage's selected script(s) and run them in order."""
-        self._run_queue.clear()
-        for stage in self._stages:
-            if stage["multi"]:
-                for name in sorted(stage["selected"]):
-                    self._run_queue.append((os.path.join(stage["dir"], name), []))
-            else:
-                selected = stage["var"].get()
-                if selected:
-                    self._run_queue.append((os.path.join(stage["dir"], selected), []))
-
-        if not self._run_queue:
-            self._log("No scripts selected in any stage.\n", tag="error")
-            return
-
-        self._log(
-            f"\n=== Run All: {len(self._run_queue)} script(s) queued ===\n",
-            tag="head",
-        )
-        self._start_next()
-
     def _start_next(self) -> None:
-        """Pop and launch the next script in the queue, if any."""
+        """Pop and launch the next script (or callback) in the queue, if any."""
         if not self._run_queue:
             self._set_running(False)
             self._log("\n=== All queued scripts finished ===\n", tag="head")
             return
 
-        script_path, extra_args = self._run_queue.popleft()
+        entry = self._run_queue.popleft()
+
+        # Callback entry: (None, callable) – e.g. post-run CSV merge
+        if entry[0] is None:
+            _, callback = entry
+            self._log("\n--- Running post-process step ---\n", tag="dim")
+            self.status_var.set("Post-processing …")
+            thread = threading.Thread(
+                target=self._run_callback, args=(callback,), daemon=True
+            )
+            thread.start()
+            return
+
+        script_path, extra_args = entry
         script_name = os.path.basename(script_path)
         self._log(f"\n--- Running: {script_path} ---\n", tag="dim")
         self.status_var.set(f"Running {script_name} …")
@@ -492,6 +562,102 @@ class MainWindow:
             target=self._run_script, args=(script_path, extra_args), daemon=True
         )
         thread.start()
+
+    def _run_callback(self, callback) -> None:
+        """Execute a post-run *callback* on a background thread, then advance the queue."""
+        try:
+            callback()
+        except Exception as exc:
+            self._output_queue.put(f"[ERROR] Post-run step failed: {exc}\n")
+        finally:
+            self._output_queue.put(None)  # sentinel → _poll_output → _start_next
+
+    def _merge_collection_csvs(self, stage: dict) -> None:
+        """
+        After all Dataset Collection scripts finish, merge every individual
+        single-column CSV they produced into one combined CSV, then delete
+        the individual files.
+
+        Expected file names are derived directly from the selected script
+        names (e.g. ``currency_btc_price.py`` → ``currency_btc_price.csv``).
+        The combined file is written to the same ``dataset_output/`` folder
+        and named ``{start_year}-{end_year}_dataset_collection.csv``.
+        """
+        output_dir = os.path.join(os.path.dirname(stage["dir"]), "dataset_output")
+        selected   = sorted(stage["selected"])
+
+        # Map each selected script to its expected CSV output path
+        csv_paths: list[str] = []
+        missing:   list[str] = []
+        for script_name in selected:
+            csv_name = os.path.splitext(script_name)[0] + ".csv"
+            csv_path = os.path.join(output_dir, csv_name)
+            if os.path.isfile(csv_path):
+                csv_paths.append(csv_path)
+            else:
+                missing.append(csv_name)
+
+        if missing:
+            self._output_queue.put(
+                f"[WARN] {len(missing)} expected output file(s) not found:\n"
+                + "".join(f"  {m}\n" for m in missing)
+            )
+        if not csv_paths:
+            self._output_queue.put("[WARN] No CSV files to merge – skipping.\n")
+            return
+
+        self._output_queue.put(
+            f"\n=== Merging {len(csv_paths)} CSV file(s) into combined dataset ===\n"
+        )
+        try:
+            frames: list[pd.DataFrame] = []
+            for csv_path in csv_paths:
+                df = pd.read_csv(csv_path, index_col=0, parse_dates=True)
+                frames.append(df)
+                self._output_queue.put(
+                    f"  Read : {os.path.basename(csv_path)}"
+                    f" – {df.shape[0]} rows, columns: {list(df.columns)}\n"
+                )
+
+            # Outer-join on the shared datetime index so every row and column
+            # from every source is preserved in the correct sequential order.
+            combined: pd.DataFrame = pd.concat(frames, axis=1, join="outer")
+            combined.sort_index(inplace=True)
+
+            # Build the combined filename from the configured date range
+            start = stage.get("start_date", "start")
+            end   = stage.get("end_date",   "end")
+            try:
+                combined_name = f"{start[:4]}-{end[:4]}_dataset_collection.csv"
+            except Exception:
+                combined_name = "dataset_collection.csv"
+
+            combined_path = os.path.join(output_dir, combined_name)
+            combined.to_csv(combined_path)
+            self._output_queue.put(
+                f"  Combined dataset saved → {combined_path}\n"
+                f"  Shape : {combined.shape[0]} rows × {combined.shape[1]} column(s)\n"
+                f"  Columns: {list(combined.columns)}\n"
+            )
+
+            # Delete the individual single-column files now that the combined
+            # file is safely on disk.
+            for csv_path in csv_paths:
+                try:
+                    os.remove(csv_path)
+                    self._output_queue.put(
+                        f"  Deleted: {os.path.basename(csv_path)}\n"
+                    )
+                except Exception as exc:
+                    self._output_queue.put(
+                        f"  [WARN] Could not delete {os.path.basename(csv_path)}: {exc}\n"
+                    )
+
+            self._output_queue.put(
+                f"\n=== Dataset Collection merge complete → {combined_name} ===\n",
+            )
+        except Exception as exc:
+            self._output_queue.put(f"[ERROR] CSV merge failed: {exc}\n")
 
     def _run_script(self, script_path: str, extra_args: list[str]) -> None:
         """Execute *script_path* as a subprocess; stream stdout to the queue."""
