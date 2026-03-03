@@ -1,17 +1,15 @@
 - each section that needs further breaking down:
-	- data collector
-		- which features to collect (select from list)
-		- time period to collect for
-		- time granularity to pick (daily, hourly etc)
-		- display data collected stats (missing entries, outliers etc)	
+
 	- data processor 
 		- feature selection process (use models to select?)
-			- include graphing for both before and after processing: 
-				- correlation matrix on features
-				- missing value heatmap
-				- distribution graph
-				- pairwise relationships between features
-	- AI Models
-		- add model map diagram
+
 	- evaluation
 		- evaluation metrics to use, select from list
+
+
+
+AI model designs are done!
+
+model training methods - need to save the completed model as a file once training is completed.
+
+Evaluations need to be able to be run on completed 
