@@ -851,6 +851,7 @@ class FeatureSelectionWindow:
         self._run_queue: collections.deque[str] = collections.deque()
         self._check_vars: dict[str, tk.BooleanVar] = {}
         self._csv_var = tk.StringVar()
+        self._target_var = tk.StringVar()
 
         self._win = tk.Toplevel(parent)
         self._win.title("Feature Selection")
@@ -887,6 +888,20 @@ class FeatureSelectionWindow:
         ttk.Button(
             csv_frame, text="\u21ba", width=3, command=self._refresh_csvs
         ).grid(row=0, column=2, padx=(4, 0))
+
+        # ── Target column picker ─────────────────────────────────────
+        ttk.Label(csv_frame, text="Target column:").grid(
+            row=1, column=0, sticky="w", padx=(0, 6), pady=(4, 0)
+        )
+        self._target_combo = ttk.Combobox(
+            csv_frame, textvariable=self._target_var, state="readonly", width=40
+        )
+        self._target_combo.grid(row=1, column=1, sticky="ew", pady=(4, 0))
+        ttk.Button(
+            csv_frame, text="\u21ba", width=3, command=self._refresh_target_columns
+        ).grid(row=1, column=2, padx=(4, 0), pady=(4, 0))
+
+        self._csv_combo.bind("<<ComboboxSelected>>", lambda _e: self._refresh_target_columns())
         self._refresh_csvs()
 
         # ── Scrollable checklist ──────────────────────────────────────
@@ -983,6 +998,24 @@ class FeatureSelectionWindow:
         current = self._csv_var.get()
         if current not in csvs:
             self._csv_var.set(csvs[0] if csvs else "")
+        self._refresh_target_columns()
+
+    def _refresh_target_columns(self) -> None:
+        """Populate the target-column combobox from the currently selected CSV headers."""
+        csv_name = self._csv_var.get()
+        if not csv_name:
+            self._target_combo["values"] = []
+            self._target_var.set("")
+            return
+        csv_path = os.path.join(DATASET_OUTPUT_DIR, csv_name)
+        try:
+            cols = list(pd.read_csv(csv_path, nrows=0, index_col=0).columns)
+        except Exception:
+            cols = []
+        self._target_combo["values"] = cols
+        current = self._target_var.get()
+        if current not in cols:
+            self._target_var.set(cols[0] if cols else "")
 
     def _select_all(self) -> None:
         for var in self._check_vars.values():
@@ -1033,6 +1066,9 @@ class FeatureSelectionWindow:
         """Execute *script_path* as a subprocess; stream stdout to the queue."""
         dataset_path = getattr(self, "_selected_csv_path", "")
         extra_args = ["--dataset", dataset_path] if dataset_path else []
+        target_col = self._target_var.get()
+        if target_col:
+            extra_args += ["--target", target_col]
         try:
             self._process = subprocess.Popen(
                 [sys.executable, script_path, *extra_args],
