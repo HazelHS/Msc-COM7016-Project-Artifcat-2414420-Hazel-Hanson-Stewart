@@ -9,3 +9,5 @@ Dataset_Modules/dataset_output
 /Interface_Modules/__pycache__
 /AI_Modules/Model_Designs/__pycache__
 /Dataset_Modules/Dataset_Collection/__pycache__
+/AI_Modules/Training_Methods/__pycache__
+/AI_Modules/Training_Methods/Trained_Model_Files

@@ -1,15 +1,24 @@
-- each section that needs further breaking down:
+#-------------#
+# Completed:  #
+#-------------#
 
-	- data processor 
-		- feature selection process (use models to select?)
+- Data Colleciton - done!
+- Data Processing - done!
+- AI model designs - done!
+- model training method - done!
+- Evaluation metrics - *unfinished*
 
-	- evaluation
-		- evaluation metrics to use, select from list
+#-------------#
+# Left to do: #
+#-------------#
 
+- Evaluations need to be able to be run using the saved models files, 
+	and from selection lists of evaluation metric .py scripts.
 
+- Run button's to be moved or removed:
+	- Dataset Collection Method's Run button must be moved into its configure window. 
+	- AI Model Design's Run button needs to be removed.
+	- Model Evaluation Method's Run button also moved into its config window.
+- Stop, Clear and console output in the main Model Designer UI must also be removed. 
+- Overall UI clean up and needed for aesthetics.
 
-AI model designs are done!
-
-model training methods - need to save the completed model as a file once training is completed.
-
-Evaluations need to be able to be run on completed 
