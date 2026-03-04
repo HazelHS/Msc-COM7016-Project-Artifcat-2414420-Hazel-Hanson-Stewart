@@ -45,6 +45,11 @@ PIPELINE_STAGES: list[tuple[str, str, bool, str | None]] = [
 # Folder that holds the collected CSV datasets
 DATASET_OUTPUT_DIR = os.path.join(ROOT_DIR, "Dataset_Modules", "dataset_output")
 
+# Folder that holds trained model checkpoint files
+TRAINED_MODEL_DIR = os.path.join(
+    ROOT_DIR, "AI_Modules", "Training_Methods", "Trained_Model_Files"
+)
+
 
 def discover_scripts(directory: str) -> list[str]:
     """Return a sorted list of .py filenames found in *directory*."""
@@ -66,6 +71,16 @@ def discover_csvs(directory: str) -> list[str]:
     )
 
 
+def discover_models(directory: str) -> list[str]:
+    """Return a sorted list of .pt model checkpoint filenames found in *directory*."""
+    if not os.path.isdir(directory):
+        return []
+    return sorted(
+        f for f in os.listdir(directory)
+        if f.endswith(".pt")
+    )
+
+
 # ── Configure-window for multi-select stages ─────────────────────────
 
 FREQ_OPTIONS: list[str] = [
@@ -80,6 +95,9 @@ _DATE_CONFIG_STAGES: set[str] = {"Dataset Collection Method"}
 
 # Labels for which the Configure window shows the CSV dataset picker.
 _DATASET_SELECT_STAGES: set[str] = {"Dataset Processing Method"}
+
+# Labels for which the Configure window shows trained-model + dataset pickers.
+_EVAL_STAGES: set[str] = {"Model Evaluation Method"}
 
 
 class ConfigureWindow:
@@ -96,6 +114,7 @@ class ConfigureWindow:
         self._stage = stage
         self._show_date_config: bool    = stage.get("label_text", "") in _DATE_CONFIG_STAGES
         self._show_dataset_select: bool = stage.get("label_text", "") in _DATASET_SELECT_STAGES
+        self._show_eval_select: bool    = stage.get("label_text", "") in _EVAL_STAGES
 
         # Seed defaults into the stage dict on first open
         if self._show_date_config:
@@ -104,11 +123,14 @@ class ConfigureWindow:
             stage.setdefault("freq",       "1d")
         if self._show_dataset_select:
             stage.setdefault("dataset_csv", "")
+        if self._show_eval_select:
+            stage.setdefault("model_file",  "")
+            stage.setdefault("dataset_csv", "")
 
         self._win = tk.Toplevel(parent)
         self._win.title(f"Configure: {stage['label_text']}")
         self._win.resizable(False, True)
-        self._win.minsize(500, 240)
+        self._win.minsize(540, 280)
         self._win.grab_set()           # modal
 
         self._check_vars: dict[str, tk.BooleanVar] = {}
@@ -120,6 +142,10 @@ class ConfigureWindow:
 
         # CSV picker variable (only created when _show_dataset_select is True)
         self._csv_var: tk.StringVar | None = None
+
+        # Eval-stage variables (only created when _show_eval_select is True)
+        self._eval_model_var: tk.StringVar | None = None
+        self._eval_csv_var:   tk.StringVar | None = None
 
         self._build()
 
@@ -156,6 +182,9 @@ class ConfigureWindow:
         # ── Dataset CSV picker (Dataset Processing only) ──────────────────
         if self._show_dataset_select:
             self._build_csv_panel(outer)
+        # ── Trained model + dataset pickers (Model Evaluation only) ──────
+        if self._show_eval_select:
+            self._build_eval_panel(outer)
         # Buttons row
         btn_row = ttk.Frame(outer)
         btn_row.pack(fill="x", pady=(8, 0))
@@ -192,6 +221,76 @@ class ConfigureWindow:
             current = self._csv_var.get() if self._csv_var else ""
             if current not in csvs:
                 self._csv_var.set(csvs[0] if csvs else "")
+
+    def _build_eval_panel(self, parent: ttk.Frame) -> None:
+        """
+        Add a trained-model picker and a dataset CSV picker for the
+        Model Evaluation Method stage.
+        """
+        eval_frame = ttk.LabelFrame(
+            parent,
+            text="Evaluation Inputs  (passed to scripts via --model and --dataset)",
+            padding=(8, 6),
+        )
+        eval_frame.pack(fill="x", pady=(0, 6))
+        eval_frame.columnconfigure(1, weight=1)
+
+        # ── Trained model file ────────────────────────────────────────
+        ttk.Label(eval_frame, text="Trained Model:").grid(
+            row=0, column=0, sticky="w", padx=(0, 6), pady=3
+        )
+        self._eval_model_var = tk.StringVar(
+            value=self._stage.get("model_file", "")
+        )
+        self._eval_model_combo = ttk.Combobox(
+            eval_frame,
+            textvariable=self._eval_model_var,
+            state="readonly",
+            width=46,
+        )
+        self._eval_model_combo.grid(row=0, column=1, sticky="ew", pady=3)
+        ttk.Button(
+            eval_frame, text="\u21ba", width=3, command=self._refresh_models
+        ).grid(row=0, column=2, padx=(4, 0), pady=3)
+
+        # ── Dataset CSV ───────────────────────────────────────────────
+        ttk.Label(eval_frame, text="Dataset CSV:").grid(
+            row=1, column=0, sticky="w", padx=(0, 6), pady=3
+        )
+        self._eval_csv_var = tk.StringVar(
+            value=self._stage.get("dataset_csv", "")
+        )
+        self._eval_csv_combo = ttk.Combobox(
+            eval_frame,
+            textvariable=self._eval_csv_var,
+            state="readonly",
+            width=46,
+        )
+        self._eval_csv_combo.grid(row=1, column=1, sticky="ew", pady=3)
+        ttk.Button(
+            eval_frame, text="\u21ba", width=3, command=self._refresh_eval_csvs
+        ).grid(row=1, column=2, padx=(4, 0), pady=3)
+
+        self._refresh_models()
+        self._refresh_eval_csvs()
+
+    def _refresh_models(self) -> None:
+        """Repopulate the trained-model combobox from the Trained_Model_Files folder."""
+        models = discover_models(TRAINED_MODEL_DIR)
+        if hasattr(self, "_eval_model_combo") and self._eval_model_combo is not None:
+            self._eval_model_combo["values"] = models
+            current = self._eval_model_var.get() if self._eval_model_var else ""
+            if current not in models:
+                self._eval_model_var.set(models[0] if models else "")
+
+    def _refresh_eval_csvs(self) -> None:
+        """Repopulate the eval dataset CSV combobox from the dataset_output folder."""
+        csvs = discover_csvs(DATASET_OUTPUT_DIR)
+        if hasattr(self, "_eval_csv_combo") and self._eval_csv_combo is not None:
+            self._eval_csv_combo["values"] = csvs
+            current = self._eval_csv_var.get() if self._eval_csv_var else ""
+            if current not in csvs:
+                self._eval_csv_var.set(csvs[0] if csvs else "")
 
     def _build_date_panel(self, parent: ttk.Frame) -> None:
         """Add start/end date entries and a frequency combobox."""
@@ -279,6 +378,11 @@ class ConfigureWindow:
             self._stage["freq"]       = self._freq_var.get()
         if self._show_dataset_select and self._csv_var is not None:
             self._stage["dataset_csv"] = self._csv_var.get()
+        if self._show_eval_select:
+            if self._eval_model_var is not None:
+                self._stage["model_file"]  = self._eval_model_var.get()
+            if self._eval_csv_var is not None:
+                self._stage["dataset_csv"] = self._eval_csv_var.get()
         self._stage["status_var"].set(self._status_text())
         self._win.destroy()
 
@@ -1660,6 +1764,9 @@ class MainWindow:
         )
         selector_panel.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 4))
         selector_panel.columnconfigure(1, weight=1)
+        selector_panel.columnconfigure(2, minsize=160)
+        selector_panel.columnconfigure(3, minsize=130)
+        selector_panel.columnconfigure(4, minsize=130)
 
         for row_idx, (label_text, rel_dir, multi, diagram_rel) in enumerate(PIPELINE_STAGES):
             abs_dir = os.path.join(ROOT_DIR, rel_dir)
@@ -1698,7 +1805,7 @@ class MainWindow:
                         width=22,
                         command=lambda d=analysis_dir: AnalysisWindow(self.root, d),
                     )
-                    analyse_btn.grid(row=row_idx, column=2, padx=(4, 0), pady=3)
+                    analyse_btn.grid(row=row_idx, column=2, padx=(4, 0), pady=3, sticky="ew")
                     stage["analyse_btn"] = analyse_btn
 
                     process_btn = ttk.Button(
@@ -1707,7 +1814,7 @@ class MainWindow:
                         width=15,
                         command=lambda s=stage: ProcessDatasetWindow(self.root, s),
                     )
-                    process_btn.grid(row=row_idx, column=3, padx=(4, 0), pady=3)
+                    process_btn.grid(row=row_idx, column=3, padx=(4, 0), pady=3, sticky="ew")
                     stage["process_btn"] = process_btn
 
                     feature_dir = os.path.join(abs_dir, "Dataset_Feature_Selection")
@@ -1717,7 +1824,7 @@ class MainWindow:
                         width=16,
                         command=lambda d=feature_dir: FeatureSelectionWindow(self.root, d),
                     )
-                    feature_btn.grid(row=row_idx, column=4, padx=(4, 0), pady=3)
+                    feature_btn.grid(row=row_idx, column=4, padx=(4, 0), pady=3, sticky="ew")
                     stage["feature_btn"] = feature_btn
                     stage["run_btn"]     = None  # run lives inside dedicated windows
                 else:
@@ -1727,7 +1834,7 @@ class MainWindow:
                         width=10,
                         command=lambda s=stage: ConfigureWindow(self.root, s),
                     )
-                    configure_btn.grid(row=row_idx, column=2, padx=(4, 0), pady=3)
+                    configure_btn.grid(row=row_idx, column=2, padx=(4, 0), pady=3, sticky="ew")
                     stage["configure_btn"] = configure_btn
 
                     run_btn = ttk.Button(
@@ -1736,7 +1843,7 @@ class MainWindow:
                         width=8,
                         command=lambda s=stage: self._on_run_multi(s),
                     )
-                    run_btn.grid(row=row_idx, column=3, padx=(4, 0), pady=3)
+                    run_btn.grid(row=row_idx, column=3, padx=(4, 0), pady=3, sticky="ew")
                     stage["run_btn"] = run_btn
 
             else:
@@ -1759,11 +1866,11 @@ class MainWindow:
                         width=14,
                         command=lambda p=diagram_abs, v=var, d=abs_dir: self._on_run_diagram(p, v, d),
                     )
-                    diag_btn.grid(row=row_idx, column=2, padx=(8, 0), pady=3)
+                    diag_btn.grid(row=row_idx, column=2, padx=(4, 0), pady=3, sticky="ew")
                     stage["diagram_btn"] = diag_btn
                     run_col, run_span = 3, 1
                 else:
-                    run_col, run_span = 2, 2
+                    run_col, run_span = 2, 1
 
                 # ── AI Training Method: Configure button opens dedicated window ─
                 if label_text == "AI Training Method":
@@ -1774,9 +1881,11 @@ class MainWindow:
                         command=lambda s=stage: TrainingConfigureWindow(self.root, s),
                     )
                     cfg_btn.grid(row=row_idx, column=run_col, padx=(4, 0), pady=3,
-                                 columnspan=run_span, sticky="w")
+                                 columnspan=1, sticky="ew")
                     stage["training_configure_btn"] = cfg_btn
                     stage["run_btn"] = None   # Run lives inside the configure window
+                elif label_text == "AI Model Designs":
+                    stage["run_btn"] = None   # No Run button for AI Model Designs
                 else:
                     run_btn = ttk.Button(
                         selector_panel,
@@ -1785,7 +1894,7 @@ class MainWindow:
                         command=lambda d=abs_dir, v=var: self._on_run_single(d, v),
                     )
                     run_btn.grid(row=row_idx, column=run_col, padx=(4, 0), pady=3,
-                                 columnspan=run_span, sticky="w")
+                                 columnspan=1, sticky="ew")
                     stage["run_btn"] = run_btn
 
                 # Populate combobox now
@@ -1968,6 +2077,28 @@ class MainWindow:
                 return
             csv_path = os.path.join(DATASET_OUTPUT_DIR, csv_name)
             extra = ["--dataset", csv_path]
+
+        # Pass --model and --dataset for Model Evaluation stages
+        if stage.get("label_text", "") in _EVAL_STAGES:
+            model_name = stage.get("model_file", "")
+            csv_name   = stage.get("dataset_csv", "")
+            if not model_name:
+                self._log(
+                    "No trained model selected for 'Model Evaluation Method'.  "
+                    "Open Configure and choose a model file.\n",
+                    tag="error",
+                )
+                return
+            if not csv_name:
+                self._log(
+                    "No dataset CSV selected for 'Model Evaluation Method'.  "
+                    "Open Configure and choose a CSV file.\n",
+                    tag="error",
+                )
+                return
+            model_path = os.path.join(TRAINED_MODEL_DIR, model_name)
+            csv_path   = os.path.join(DATASET_OUTPUT_DIR, csv_name)
+            extra = ["--model", model_path, "--dataset", csv_path]
 
         self._run_queue.clear()
         for name in selected:

@@ -11,3 +11,4 @@ Dataset_Modules/dataset_output
 /Dataset_Modules/Dataset_Collection/__pycache__
 /AI_Modules/Training_Methods/__pycache__
 /AI_Modules/Training_Methods/Trained_Model_Files
+/Evaluation_Modules/Evaluation_Metrics/__pycache__
