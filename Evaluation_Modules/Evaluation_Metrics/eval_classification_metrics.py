@@ -43,6 +43,11 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 # =============================================================================
 
 def parse_args() -> argparse.Namespace:
+    """Parse CLI arguments for the classification metrics evaluation script.
+
+    Returns:
+        argparse.Namespace with ``--model`` and ``--dataset`` paths.
+    """
     p = argparse.ArgumentParser(
         description="Evaluate directional classification metrics for a trained model."
     )
@@ -66,6 +71,7 @@ def parse_args() -> argparse.Namespace:
 # =============================================================================
 
 def main() -> None:
+    """Load checkpoint, run inference on the test split, and display directional classification metrics."""
     args = parse_args()
 
     # ── Load model and run inference ─────────────────────────────────────────

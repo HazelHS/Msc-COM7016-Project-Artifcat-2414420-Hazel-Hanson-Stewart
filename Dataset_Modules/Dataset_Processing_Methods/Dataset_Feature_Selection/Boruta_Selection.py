@@ -47,12 +47,30 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 def load_data(filepath: Path) -> pd.DataFrame:
+    """Load a CSV dataset from disk.
+
+    Args:
+        filepath: Absolute path to the CSV file.  The first column is
+            used as the DatetimeIndex.
+
+    Returns:
+        DataFrame with a DatetimeIndex and one column per feature.
+    """
     return pd.read_csv(filepath, index_col=0, parse_dates=True)
 
 
 def plot_feature_importance(scores_df: pd.DataFrame, method_name: str,
                              output_path: Path) -> None:
-    """Horizontal bar chart of selected feature importance scores."""
+    """Draw a horizontal bar chart of selected feature importance scores.
+
+    Args:
+        scores_df: DataFrame with columns ``Feature``, ``Selected``, and either
+            ``Score`` or ``Importance``.
+        method_name: Human-readable name of the selection method used as the
+            chart title suffix.
+        output_path: Destination path for the saved figure (unused — chart is
+            displayed interactively).
+    """
     selected = scores_df[scores_df["Selected"]].copy()
     score_col = "Score" if "Score" in selected.columns else "Importance"
 
@@ -81,14 +99,31 @@ def plot_feature_importance(scores_df: pd.DataFrame, method_name: str,
 def save_selected_features(df: pd.DataFrame, selected_features: list[str],
                             target: str, method_name: str,
                             dataset_stem: str) -> Path:
+    """Persist the selected feature subset as a CSV file.
+
+    Combines the selected feature columns and the target column, then
+    writes the result to ``OUTPUT_DIR`` using a filename that encodes
+    the source dataset and selection method.
+
+    Args:
+        df: Full input DataFrame (before feature selection).
+        selected_features: List of selected feature column names.
+        target: Name of the target column to append to the output.
+        method_name: Short label for the selection method (e.g.
+            ``"Boruta"``).
+        dataset_stem: Stem of the input file name, used to construct
+            the output filename.
+
+    Returns:
+        :class:`pathlib.Path` of the written CSV file.
+    """
     final_cols = selected_features + [target]
-    df_sel = df[final_cols]
-    out = OUTPUT_DIR / f"{dataset_stem}_selected_features_{method_name}.csv"
-    df_sel.to_csv(out)
-    return out
+    out_df = df[final_cols]
+    out_path = OUTPUT_DIR / f"{dataset_stem}_{method_name}_selected.csv"
+    out_df.to_csv(out_path)
+    print(f"[save_selected_features] Saved {out_df.shape} -> {out_path}")
+    return out_path
 
-
-# ── Core algorithm ────────────────────────────────────────────────────────
 
 def boruta_selection(
     df: pd.DataFrame,
@@ -96,7 +131,31 @@ def boruta_selection(
     max_iter: int = 100,
     importance_threshold: float = 0.01,
 ) -> tuple[list[str], pd.DataFrame]:
-    """Boruta algorithm feature selection with Random Forest base estimator. (Anthropic, 2024)"""
+    """Select features using the Boruta algorithm with a Random Forest base estimator.
+
+    Boruta is a wrapper method that creates shuffled copies of each feature
+    (shadow features), trains a Random Forest on the combined set, and
+    retains only those features whose normalised importance consistently
+    exceeds the maximum shadow feature importance.
+
+    Args:
+        df: Input DataFrame with features and target column.
+        target: Name of the target column.  Defaults to ``"BTC/USD"``.
+        max_iter: Maximum number of Boruta iterations.  More iterations
+            improve stability but increase runtime.
+        importance_threshold: Minimum normalised importance score for a
+            feature to be provisionally selected (0–1 scale).
+
+    Returns:
+        A tuple of:
+
+        * ``selected_features`` – list of retained column names.
+        * ``importance_scores`` – DataFrame with columns
+          ``Feature``, ``Score``, ``Selected`` for every input feature.
+
+    Raises:
+        ImportError: If the ``boruta`` package is not installed.
+    """
     if not _BORUTA_AVAILABLE:
         raise ImportError(
             "The 'boruta' package is not installed. "
@@ -203,6 +262,7 @@ def boruta_selection(
 # ── Entry point ───────────────────────────────────────────────────────────
 
 def main() -> None:
+    """Parse CLI arguments, run Boruta selection, and save charts and the filtered CSV."""
     parser = argparse.ArgumentParser(
         description="Boruta algorithm feature selection."
     )

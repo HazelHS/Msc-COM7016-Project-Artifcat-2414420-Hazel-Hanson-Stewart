@@ -48,6 +48,11 @@ import matplotlib.pyplot as plt
 # =============================================================================
 
 def parse_args() -> argparse.Namespace:
+    """Parse CLI arguments for the MASE evaluation script.
+
+    Returns:
+        argparse.Namespace with ``--model`` and ``--dataset`` paths.
+    """
     p = argparse.ArgumentParser(
         description="Evaluate MASE (Mean Absolute Scaled Error) for a trained model."
     )
@@ -71,6 +76,7 @@ def parse_args() -> argparse.Namespace:
 # =============================================================================
 
 def main() -> None:
+    """Load checkpoint, run inference on the test split, and display a MASE bar chart."""
     args = parse_args()
 
     # ── Load model and run inference ─────────────────────────────────────────

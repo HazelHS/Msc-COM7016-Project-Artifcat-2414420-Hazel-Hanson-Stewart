@@ -27,6 +27,24 @@ ENDPOINT        = "charts/difficulty"
 
 
 def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, freq: str = "1d") -> pd.DataFrame:
+    """Fetch the Bitcoin mining difficulty from the Blockchain.info API.
+
+    Args:
+        start_date: ISO date string (``YYYY-MM-DD``) for the request start.
+        end_date: ISO date string (``YYYY-MM-DD``) for the request end.
+        date_range: pandas DatetimeIndex to re-index the result onto.
+        freq: Data frequency string.  Must be a member of
+            ``BLOCKCHAIN_SUPPORTED_FREQS`` (``"1d"``, ``"5d"``,
+            ``"1wk"``, ``"1mo"``, ``"3mo"``).
+
+    Returns:
+        Single-column DataFrame indexed by *date_range* with column
+        ``Onchain Mining Difficulty``.
+
+    Raises:
+        UnsupportedIntervalError: If *freq* requests sub-daily granularity
+            that the Blockchain.info API does not support.
+    """
     if freq.lower() not in BLOCKCHAIN_SUPPORTED_FREQS:
         raise UnsupportedIntervalError(
             f"Blockchain.info API only provides daily-granularity data.  "
@@ -41,6 +59,7 @@ def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, freq: 
 
 
 def main() -> None:
+    """Parse CLI arguments, collect mining difficulty data, and save the output CSV."""
     import argparse
     parser = argparse.ArgumentParser(description=OUTPUT_FILENAME)
     parser.add_argument("--start", default=None,

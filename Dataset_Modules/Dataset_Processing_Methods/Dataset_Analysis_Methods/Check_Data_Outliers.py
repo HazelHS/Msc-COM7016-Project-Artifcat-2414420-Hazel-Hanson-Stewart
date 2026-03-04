@@ -21,6 +21,7 @@ import pandas as pd
 
 
 def main() -> None:
+    """Parse CLI arguments and detect IQR-based outliers in the CSV."""
     parser = argparse.ArgumentParser(description="Detect outliers via IQR method.")
     parser.add_argument("--dataset", required=True, help="Absolute path to the input CSV file.")
     args = parser.parse_args()

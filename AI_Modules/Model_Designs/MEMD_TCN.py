@@ -31,7 +31,14 @@ from scipy.interpolate import CubicSpline
 # =============================================================================
 
 def _get_primes(n: int) -> list[int]:
-    """Return first n prime numbers."""
+    """Return first n prime numbers.
+
+    Args:
+        n: Count of primes to generate.
+
+    Returns:
+        List of the first n prime integers.
+    """
     primes, candidates = [], list(range(2, n * 20))
     for x in candidates:
         if all(x % p != 0 for p in primes):
@@ -42,9 +49,16 @@ def _get_primes(n: int) -> list[int]:
 
 
 def _halton(i: int, base: int) -> float:
-    """
-    Generate i-th Halton sequence value in given base.
+    """Generate i-th Halton sequence value in given base.
+
     Rehman & Mandic (2010), eq. 3.5
+
+    Args:
+        i: Sequence index (0-based).
+        base: Numerical base for the quasi-random sequence.
+
+    Returns:
+        Quasi-random float in [0, 1).
     """
     f, r = 1.0, 0.0
     while i > 0:
@@ -94,7 +108,15 @@ def _hammersley_directions(K: int, n_dims: int) -> np.ndarray:
 
 
 def _find_maxima(signal: np.ndarray) -> np.ndarray:
-    """Return indices of local maxima in 1-D signal."""
+    """Return indices of local maxima in 1-D signal.
+
+    Args:
+        signal: 1-D array of numeric values.
+
+    Returns:
+        Integer array of indices where ``signal[i] > signal[i-1]`` and
+        ``signal[i] > signal[i+1]``.
+    """
     maxima = []
     for i in range(1, len(signal) - 1):
         if signal[i] > signal[i - 1] and signal[i] > signal[i + 1]:
@@ -103,9 +125,15 @@ def _find_maxima(signal: np.ndarray) -> np.ndarray:
 
 
 def _is_monotonic(X: np.ndarray) -> bool:
-    """
-    Check if all channels of multivariate signal are monotonic.
-    Used as MEMD termination condition.
+    """Check if all channels of multivariate signal are monotonic.
+
+    Used as the MEMD termination condition (Rehman & Mandic 2010).
+
+    Args:
+        X: ndarray [n_channels, T] — multivariate signal.
+
+    Returns:
+        True if every channel is entirely non-decreasing or non-increasing.
     """
     for c in range(X.shape[0]):
         diff = np.diff(X[c])
@@ -230,6 +258,14 @@ class _CausalConv1d(nn.Module):
         kernel_size: int,
         dilation: int,
     ):
+        """Initialise a causal Conv1d with left-padding and weight normalisation.
+
+        Args:
+            in_channels: Number of input feature channels.
+            out_channels: Number of output feature channels.
+            kernel_size: Convolution kernel width.
+            dilation: Dilation factor for the convolution.
+        """
         super().__init__()
         self.padding = (kernel_size - 1) * dilation
         self.conv = weight_norm(
@@ -243,6 +279,14 @@ class _CausalConv1d(nn.Module):
         nn.init.zeros_(self.conv.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Apply causal convolution to *x*.
+
+        Args:
+            x: Input tensor of shape [batch, in_channels, time].
+
+        Returns:
+            Tensor of shape [batch, out_channels, time] with no future leakage.
+        """
         out = self.conv(x)
         # Slice off future padding to maintain causality
         return out[:, :, :-self.padding] if self.padding > 0 else out
@@ -284,6 +328,14 @@ class ResidualBlock(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Apply two causal conv layers with dropout and a residual connection.
+
+        Args:
+            x: Input tensor of shape [batch, in_channels, seq_len].
+
+        Returns:
+            Tensor of shape [batch, out_channels, seq_len] after residual add.
+        """
         out = self.dropout(self.relu(self.conv1(x)))
         out = self.dropout(self.relu(self.conv2(out)))
         res = self.shortcut(x) if self.shortcut is not None else x
@@ -326,6 +378,14 @@ class TCN(nn.Module):
         self.fc = nn.Linear(hidden, 1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Run the TCN stack and return the next-step scalar prediction.
+
+        Args:
+            x: Input tensor of shape [batch, in_channels, seq_len].
+
+        Returns:
+            1-D tensor of shape [batch] with one predicted value per sample.
+        """
         # x: [batch, channels, seq_len]
         out = self.network(x)            # [batch, hidden, seq_len]
         out = out[:, :, -1]              # last timestep only

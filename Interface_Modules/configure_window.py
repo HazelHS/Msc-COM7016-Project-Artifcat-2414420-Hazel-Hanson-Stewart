@@ -34,6 +34,16 @@ class ConfigureWindow:
     """
 
     def __init__(self, parent: tk.Widget, stage: dict) -> None:
+        """Open the configure window for a pipeline stage.
+
+        Reads ``stage['label_text']`` to determine which optional panels
+        (date range, CSV picker, eval picker) to display.
+
+        Args:
+            parent: Parent widget that owns this ``Toplevel``.
+            stage: Mutable stage dict from ``MainWindow._stages``.  Updated
+                in-place when the user clicks OK.
+        """
         self._stage = stage
         self._show_date_config:    bool = stage.get("label_text", "") in DATE_CONFIG_STAGES
         self._show_dataset_select: bool = stage.get("label_text", "") in DATASET_SELECT_STAGES
@@ -75,6 +85,7 @@ class ConfigureWindow:
     # ── Build ──────────────────────────────────────────────────────────
 
     def _build(self) -> None:
+        """Assemble all child widgets and optional stage-specific panels."""
         outer = ttk.Frame(self._win, padding=10)
         outer.pack(fill="both", expand=True)
 
@@ -277,14 +288,17 @@ class ConfigureWindow:
     # ── Actions ────────────────────────────────────────────────────────
 
     def _select_all(self) -> None:
+        """Tick all script checkboxes."""
         for var in self._check_vars.values():
             var.set(True)
 
     def _deselect_all(self) -> None:
+        """Clear all script checkboxes."""
         for var in self._check_vars.values():
             var.set(False)
 
     def _refresh(self) -> None:
+        """Repopulate the checklist from the script directory."""
         self._populate_checks()
 
     def _ok(self) -> None:

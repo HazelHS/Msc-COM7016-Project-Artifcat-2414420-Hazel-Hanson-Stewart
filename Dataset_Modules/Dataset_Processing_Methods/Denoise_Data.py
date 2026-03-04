@@ -58,15 +58,13 @@ def wavelet_denoising(df: pd.DataFrame, wavelet: str = "db4", level: int = 3) ->
       3. Soft thresholding:          T_λ(d) = sign(d)·max(|d|−λ, 0)
       4. Inverse transform + boundary correction.
 
-    Parameters
-    ----------
-    df      : Input DataFrame with a DatetimeIndex.
-    wavelet : PyWavelets wavelet name (default 'db4').
-    level   : Decomposition level (default 3).
+    Args:
+        df: Input DataFrame with a DatetimeIndex and numeric columns.
+        wavelet: PyWavelets wavelet name (default ``'db4'``).
+        level: Decomposition level (default 3).
 
-    Returns
-    -------
-    DataFrame of the same shape with denoised values.
+    Returns:
+        DataFrame of the same shape with denoised values.
     """
     # (Gil et al., 2024), (Anthropic, 2024)
     df_denoised = df.copy()
@@ -103,6 +101,12 @@ def wavelet_denoising(df: pd.DataFrame, wavelet: str = "db4", level: int = 3) ->
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
+    """Parse CLI arguments and run wavelet denoising on the specified CSV.
+
+    Loads the dataset, applies :func:`wavelet_denoising` to all numeric
+    columns, prints a per-column noise/signal summary, and saves the
+    denoised result as ``<stem>_denoised.csv`` in the same directory.
+    """
     parser = argparse.ArgumentParser(
         description="Wavelet-denoise numeric columns in a dataset CSV."
     )

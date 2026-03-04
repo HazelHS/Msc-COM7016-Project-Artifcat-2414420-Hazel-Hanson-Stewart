@@ -25,6 +25,7 @@ import pandas as pd
 
 
 def main() -> None:
+    """Parse CLI arguments and Min-Max normalise numeric columns in the CSV."""
     parser = argparse.ArgumentParser(description="Min-Max normalise numeric columns in a dataset CSV.")
     parser.add_argument("--dataset", required=True, help="Absolute path to the input CSV file.")
     args = parser.parse_args()

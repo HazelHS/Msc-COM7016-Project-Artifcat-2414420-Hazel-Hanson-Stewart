@@ -39,9 +39,18 @@ class SequenceDataset(Dataset):
         self.y = torch.FloatTensor(y)
 
     def __len__(self) -> int:
+        """Return the total number of sliding-window samples."""
         return len(self.X)
 
     def __getitem__(self, idx: int):
+        """Return the (features, target) pair at index *idx*.
+
+        Args:
+            idx: Integer sample index.
+
+        Returns:
+            Tuple of float32 tensors (X[idx], y[idx]).
+        """
         return self.X[idx], self.y[idx]
 
 

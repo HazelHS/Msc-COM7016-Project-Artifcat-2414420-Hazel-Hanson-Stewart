@@ -63,10 +63,16 @@ except Exception as exc:
 
 # ── Find the primary model class ──────────────────────────────────────────────
 def find_model_class(mod) -> type | None:
-    """
-    Return the primary nn.Module subclass defined in mod.
-    Prefers classes whose name contains 'Model'.
-    Falls back to the last nn.Module subclass found in the file.
+    """Return the primary nn.Module subclass defined in *mod*.
+
+    Prefers classes whose name contains 'Model'.  Falls back to the last
+    nn.Module subclass found in the file.
+
+    Args:
+        mod: Dynamically imported Python module object.
+
+    Returns:
+        The primary model class, or None if no nn.Module subclass is found.
     """
     preferred, fallback = None, None
     for obj_name, obj in mod.__dict__.items():
@@ -102,6 +108,14 @@ device          = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ── Inspect constructor ───────────────────────────────────────────────────────
 def _get_init_params(cls) -> list[str]:
+    """Return constructor parameter names for *cls*, excluding *self*.
+
+    Args:
+        cls: Class to inspect via :func:`inspect.signature`.
+
+    Returns:
+        List of parameter name strings, or empty list on inspection failure.
+    """
     try:
         sig = inspect.signature(cls.__init__)
         return [k for k in sig.parameters if k != "self"]
@@ -109,7 +123,16 @@ def _get_init_params(cls) -> list[str]:
         return []
 
 def _try_instantiate(cls, candidates: list[dict], device) -> nn.Module | None:
-    """Try each kwarg dict in order, return first that successfully constructs."""
+    """Try each kwarg dict in *candidates* in order; return the first success.
+
+    Args:
+        cls: The nn.Module subclass to instantiate.
+        candidates: Ordered list of keyword-argument dicts to attempt.
+        device: Torch device to move the model to on success.
+
+    Returns:
+        An instantiated model moved to *device*, or None if all attempts fail.
+    """
     accepted = set(_get_init_params(cls))
     for kwargs in candidates:
         for kw in [kwargs, {k: v for k, v in kwargs.items() if k in accepted}]:
@@ -193,6 +216,14 @@ def get_color_key(cls_name: str) -> str:
     return "default"
 
 def get_color(cls_name: str) -> str:
+    """Return the hex fill colour for *cls_name* from COLOR_MAP.
+
+    Args:
+        cls_name: PyTorch module class name string.
+
+    Returns:
+        Hex colour string (e.g. ``'#2E6DA4'``).
+    """
     return COLOR_MAP[get_color_key(cls_name)]
 
 # ── LAYER-LEVEL forward-hook tracing ─────────────────────────────────────────
@@ -211,11 +242,28 @@ def _is_leaf_layer(mod: nn.Module) -> bool:
     return not any(True for _ in mod.children())
 
 def _module_depth(name: str) -> int:
+    """Return the nesting depth of a named module path.
+
+    Args:
+        name: Dot-separated module name (e.g. 'network.0.conv1').
+
+    Returns:
+        Number of path segments (0 for empty string).
+    """
     return len(name.split(".")) if name else 0
 
 executed: list[tuple[str, str, object]] = []  # (full_name, class_name, output_shape)
 
 def make_hook(full_name: str):
+    """Create a forward hook that records output shape for *full_name*.
+
+    Args:
+        full_name: Dot-separated qualified name of the module being hooked.
+
+    Returns:
+        A forward-hook callable that appends
+        ``(full_name, class_name, shape)`` to the outer ``executed`` list.
+    """
     def hook(mod, inp, out):
         try:
             shape = tuple(out.shape) if isinstance(out, torch.Tensor) else None
@@ -275,6 +323,14 @@ if not trace_success or not executed:
 # diagram readable.  Keeps first occurrence of each (class, parent-block) group.
 
 def _parent(name: str) -> str:
+    """Return the parent module path for a dot-separated *name*.
+
+    Args:
+        name: Dot-separated qualified module name.
+
+    Returns:
+        Everything before the final dot, or empty string for top-level names.
+    """
     parts = name.split(".")
     return ".".join(parts[:-1]) if len(parts) > 1 else ""
 
@@ -365,6 +421,16 @@ for key in COLOR_MAP:
         legend_items.append((key, LEGEND_LABELS.get(key, key)))
 
 def text_width(draw, text, fnt):
+    """Return the pixel width of *text* rendered with *fnt*.
+
+    Args:
+        draw: A :class:`PIL.ImageDraw.ImageDraw` instance.
+        text: The string to measure.
+        fnt: A PIL font object.
+
+    Returns:
+        Integer pixel width of the bounding box.
+    """
     bbox = draw.textbbox((0, 0), text, font=fnt)
     return bbox[2] - bbox[0]
 

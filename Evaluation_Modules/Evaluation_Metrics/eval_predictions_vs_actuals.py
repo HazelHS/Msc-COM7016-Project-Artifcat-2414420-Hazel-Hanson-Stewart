@@ -42,6 +42,11 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 # =============================================================================
 
 def parse_args() -> argparse.Namespace:
+    """Parse CLI arguments for the predictions-vs-actuals plot script.
+
+    Returns:
+        argparse.Namespace with ``--model``, ``--dataset``, and ``--sample`` values.
+    """
     p = argparse.ArgumentParser(
         description="Plot predictions vs actuals for a trained model on a test dataset."
     )
@@ -71,6 +76,7 @@ def parse_args() -> argparse.Namespace:
 # =============================================================================
 
 def main() -> None:
+    """Load checkpoint, run inference on the test split, and plot predictions vs actuals."""
     args = parse_args()
 
     # ── Load model and run inference ─────────────────────────────────────────

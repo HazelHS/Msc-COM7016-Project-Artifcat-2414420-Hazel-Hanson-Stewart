@@ -27,7 +27,18 @@ RATE_LIMIT_TIMEOUT = 2
 
 
 def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interval: str = "1d") -> pd.DataFrame:
-    print("  Fetching DX-Y.NYB …")
+    """Download the US Dollar Index (DXY) from Yahoo Finance and re-index to *date_range*.
+
+    Args:
+        start_date: ISO date string (``YYYY-MM-DD``) for the download start.
+        end_date: ISO date string (``YYYY-MM-DD``) for the download end.
+        date_range: Full pandas DatetimeIndex to re-index the result onto.
+        interval: yfinance interval string (e.g. ``"1d"`` for daily).
+
+    Returns:
+        Single-column DataFrame indexed by *date_range* with column
+        ``Currency US Dollar Index`` holding the DXY closing values.
+    """
     time.sleep(RATE_LIMIT_TIMEOUT)
     raw = yf.download("DX-Y.NYB", start=start_date, end=end_date, interval=interval, progress=False)
     raw = strip_yf_tz(raw)
@@ -37,6 +48,7 @@ def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interv
 
 
 def main() -> None:
+    """Parse CLI arguments, collect the US Dollar Index data, and save the output CSV."""
     import argparse
     parser = argparse.ArgumentParser(description=OUTPUT_FILENAME)
     parser.add_argument("--start", default=None,

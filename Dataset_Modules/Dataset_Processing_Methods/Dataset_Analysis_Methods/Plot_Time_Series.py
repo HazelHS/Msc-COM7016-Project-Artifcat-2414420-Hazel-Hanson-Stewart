@@ -36,8 +36,19 @@ import matplotlib.dates as mdates
 # ── Reusable helpers (adapted from dataset.ipynb) ─────────────────────────────
 
 def plot_time_series(series, title, ax, color="#1f77b4", alpha=0.8, linewidth=1.5):
-    """Plot a single Pandas Series on ax as a time series line."""
-    # (Anthropic, 2024)
+    """Plot a single pandas Series on *ax* as a time series line.
+
+    Args:
+        series: pandas Series with a DatetimeIndex.
+        title: Axis title string.
+        ax: matplotlib Axes to plot onto.
+        color: Line colour hex string (default ``'#1f77b4'``).
+        alpha: Line opacity (default 0.8).
+        linewidth: Line width in points (default 1.5).
+
+    Returns:
+        The same *ax* object after plotting.
+    """
     ax.plot(series.index, series, color=color, alpha=alpha, linewidth=linewidth)
     ax.set_title(title, fontsize=11)
     ax.set_ylabel("Value", fontsize=9)
@@ -47,8 +58,13 @@ def plot_time_series(series, title, ax, color="#1f77b4", alpha=0.8, linewidth=1.
 
 
 def format_time_axis(ax, is_last=False):
-    """Apply date formatting to the x-axis of ax."""
-    # (Anthropic, 2024)
+    """Apply date formatting to the x-axis of *ax*.
+
+    Args:
+        ax: matplotlib Axes whose x-axis to format.
+        is_last: If True, show full date labels and quarterly minor ticks;
+            if False, hide x-tick labels (for stacked plots).
+    """
     if not is_last:
         ax.set_xlabel("")
         plt.setp(ax.get_xticklabels(), visible=False)
@@ -65,6 +81,12 @@ def format_time_axis(ax, is_last=False):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
+    """Parse CLI arguments and plot a stacked time-series chart for each column.
+
+    Loads the specified CSV, selects all numeric columns, and renders a
+    vertically stacked line chart with a shared x-axis.  The figure is
+    shown interactively and optionally auto-saved to *--output-dir*.
+    """
     parser = argparse.ArgumentParser(
         description="Plot stacked time-series charts for each column in a dataset CSV."
     )

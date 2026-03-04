@@ -123,7 +123,19 @@ def load_model_and_run_inference(
 
 def _infer_xlstm(ckpt: dict, hp: dict, df: pd.DataFrame,
                  dataset_path: Path, device: torch.device) -> dict:
-    """Full xLSTM-TS data-prep + inference pipeline."""
+    """Run the full xLSTM-TS data-preparation and inference pipeline.
+
+    Args:
+        ckpt: Loaded checkpoint dict from ``torch.load()``.
+        hp: Hyperparameter dict extracted from ``ckpt['hyperparameters']``.
+        df: Dataset DataFrame already loaded from *dataset_path*.
+        dataset_path: Path to the dataset CSV (used for ``dataset_name``).
+        device: Torch device on which to run inference.
+
+    Returns:
+        dict with keys ``predictions``, ``actuals``, ``y_train``,
+        ``model_name``, and ``dataset_name``.
+    """
 
     target_col      = hp.get("target_col", "BTC/USD")
     sequence_length = int(hp.get("sequence_length", 60))
@@ -216,7 +228,19 @@ def _infer_xlstm(ckpt: dict, hp: dict, df: pd.DataFrame,
 
 def _infer_memd(ckpt: dict, hp: dict, df: pd.DataFrame,
                 dataset_path: Path, device: torch.device) -> dict:
-    """Full MEMD-TCN data-prep + inference pipeline."""
+    """Run the full MEMD-TCN data-preparation and inference pipeline.
+
+    Args:
+        ckpt: Loaded checkpoint dict from ``torch.load()``.
+        hp: Hyperparameter dict extracted from ``ckpt['hyperparameters']``.
+        df: Dataset DataFrame already loaded from *dataset_path*.
+        dataset_path: Path to the dataset CSV (used for ``dataset_name``).
+        device: Torch device on which to run inference.
+
+    Returns:
+        dict with keys ``predictions``, ``actuals``, ``y_train``,
+        ``model_name``, and ``dataset_name``.
+    """
 
     target_col      = hp.get("target_col", "BTC/USD")
     sequence_length = int(hp.get("sequence_length", 30))
@@ -318,11 +342,19 @@ def _infer_memd(ckpt: dict, hp: dict, df: pd.DataFrame,
 def calculate_mase(y_true: np.ndarray,
                    y_pred: np.ndarray,
                    y_train: np.ndarray | None) -> float:
-    """
-    Mean Absolute Scaled Error.
+    """Compute the Mean Absolute Scaled Error (MASE).
 
-    MASE = MAE(test) / MAE(naive forecast on training set)
-    A value < 1 means the model outperforms a naive one-step persistence forecast.
+    MASE = MAE(model) / MAE(naive one-step persistence forecast on the training
+    set).  A value < 1 means the model outperforms the naive forecast.
+
+    Args:
+        y_true: 1-D array of ground-truth test values.
+        y_pred: 1-D array of model predictions.
+        y_train: 1-D array of unscaled training targets used to compute the naive
+            benchmark.  Falls back to *y_true* when ``None``.
+
+    Returns:
+        MASE as a float.
     """
     from sklearn.metrics import mean_absolute_error
     mae = mean_absolute_error(y_true, y_pred)

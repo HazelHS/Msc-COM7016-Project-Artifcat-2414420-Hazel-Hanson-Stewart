@@ -14,8 +14,17 @@ RATE_LIMIT_TIMEOUT = 2  # seconds between Yahoo Finance requests
 
 
 def _strip_tz(df: pd.DataFrame) -> pd.DataFrame:
-    """Remove UTC timezone from a yfinance intraday result so it aligns with
-    the timezone-naive date_range produced by init_project_paths."""
+    """Remove UTC timezone from a yfinance intraday result.
+
+    Ensures the index aligns with the timezone-naive date_range produced by
+    :func:`init_project_paths`.
+
+    Args:
+        df: DataFrame returned by ``yf.download()``.
+
+    Returns:
+        The same DataFrame with a timezone-naive DatetimeIndex.
+    """
     if not df.empty and getattr(df.index, "tz", None) is not None:
         df.index = df.index.tz_localize(None)
     return df
@@ -29,20 +38,27 @@ def fetch_index(
     date_range: pd.DatetimeIndex,
     interval: str = "1d",
 ) -> pd.DataFrame:
-    """
-    Download OHLCV for *symbol* and optionally convert Close to USD via
-    *currency_pair* (e.g. 'EURUSD=X').
+    """Download OHLCV for *symbol* and optionally convert Close to USD.
 
-    Parameters
-    ----------
-    interval : str
-        yfinance interval string (e.g. ``"1d"``, ``"1wk"``, ``"1mo"``).
-        Note: intraday intervals (``"1m"`` – ``"1h"``) require ``start_date``
-        to be within the last 7–730 days depending on the interval.
+    Uses *currency_pair* (e.g. ``'EURUSD=X'``) for FX conversion when
+    provided.  Volume is scaled to millions (thousands for Nikkei / HSI).
+    Sanity checks reject implausible price or volume ranges.
 
-    Returns a DataFrame with two columns:
-        <symbol>_Close_USD  and  <symbol>_Volume_M
-    re-indexed to the full *date_range*.  Returns an empty DataFrame on error.
+    Args:
+        symbol: Yahoo Finance ticker symbol (e.g. ``'^GDAXI'``).
+        currency_pair: Yahoo Finance FX pair symbol for USD conversion
+            (e.g. ``'EURUSD=X'``), or None to skip conversion.
+        start_date: ISO date string ``'YYYY-MM-DD'`` for download start.
+        end_date: ISO date string ``'YYYY-MM-DD'`` for download end.
+        date_range: pandas DatetimeIndex to re-index the result onto.
+        interval: yfinance interval string (e.g. ``'1d'``, ``'1wk'``,
+            ``'1mo'``).  Note: intraday intervals require *start_date*
+            within the last 7–730 days depending on the interval.
+
+    Returns:
+        DataFrame with columns ``<symbol>_Close_USD`` and
+        ``<symbol>_Volume_M`` re-indexed to *date_range*, or an empty
+        DataFrame on download error or failed sanity checks.
     """
     print(f"    Fetching {symbol} …")
     time.sleep(RATE_LIMIT_TIMEOUT)

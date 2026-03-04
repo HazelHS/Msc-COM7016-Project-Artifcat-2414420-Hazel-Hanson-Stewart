@@ -48,6 +48,11 @@ class MainWindow:
     CONSOLE_FG = "#d4d4d4"
 
     def __init__(self, root: tk.Tk) -> None:
+        """Initialise the main application window and build the UI.
+
+        Args:
+            root: The root ``tk.Tk`` instance that owns this window.
+        """
         self.root = root
         self.root.title("Model Designer")
         self.root.minsize(980, 680)
@@ -620,6 +625,13 @@ class MainWindow:
     # ------------------------------------------------------------------
 
     def _log(self, text: str, tag: str = "") -> None:
+        """Append *text* to the embedded console, optionally with a colour *tag*.
+
+        Args:
+            text: The string to append.
+            tag: Optional named tag (``'info'``, ``'error'``, ``'dim'``, ``'head'``)
+                controlling foreground colour.
+        """
         self.console.config(state="normal")
         if tag:
             self.console.insert("end", text, tag)
@@ -629,6 +641,7 @@ class MainWindow:
         self.console.config(state="disabled")
 
     def _clear_console(self) -> None:
+        """Erase all text in the embedded console widget."""
         self.console.config(state="normal")
         self.console.delete("1.0", "end")
         self.console.config(state="disabled")

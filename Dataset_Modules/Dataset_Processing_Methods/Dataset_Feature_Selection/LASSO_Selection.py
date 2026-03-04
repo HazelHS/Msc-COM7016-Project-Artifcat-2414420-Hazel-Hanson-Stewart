@@ -39,12 +39,30 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 def load_data(filepath: Path) -> pd.DataFrame:
+    """Load a CSV dataset from disk.
+
+    Args:
+        filepath: Absolute path to the CSV file.  The first column is
+            used as the DatetimeIndex.
+
+    Returns:
+        DataFrame with a DatetimeIndex and one column per feature.
+    """
     return pd.read_csv(filepath, index_col=0, parse_dates=True)
 
 
 def plot_feature_importance(scores_df: pd.DataFrame, method_name: str,
                              output_path: Path) -> None:
-    """Horizontal bar chart of selected feature importance scores (abs coefficient)."""
+    """Draw a horizontal bar chart of selected feature importance scores (abs coefficient).
+
+    Args:
+        scores_df: DataFrame with columns ``Feature``, ``Selected``, and either
+            ``Score`` or ``Importance``.
+        method_name: Human-readable name of the selection method used as the
+            chart title suffix.
+        output_path: Destination path for the saved figure (unused — chart is
+            displayed interactively).
+    """
     selected = scores_df[scores_df["Selected"]].copy()
     score_col = "Score" if "Score" in selected.columns else "Importance"
 
@@ -73,21 +91,54 @@ def plot_feature_importance(scores_df: pd.DataFrame, method_name: str,
 def save_selected_features(df: pd.DataFrame, selected_features: list[str],
                             target: str, method_name: str,
                             dataset_stem: str) -> Path:
+    """Persist the selected feature subset as a CSV file.
+
+    Args:
+        df: Full input DataFrame (before feature selection).
+        selected_features: List of selected feature column names.
+        target: Name of the target column to append to the output.
+        method_name: Short label for the selection method (e.g.
+            ``"LASSO"``).
+        dataset_stem: Stem of the input file name, used to construct
+            the output filename.
+
+    Returns:
+        :class:`pathlib.Path` of the written CSV file.
+    """
     final_cols = selected_features + [target]
-    df_sel = df[final_cols]
-    out = OUTPUT_DIR / f"{dataset_stem}_selected_features_{method_name}.csv"
-    df_sel.to_csv(out)
-    return out
+    out_df = df[final_cols]
+    out_path = OUTPUT_DIR / f"{dataset_stem}_{method_name}_selected.csv"
+    out_df.to_csv(out_path)
+    print(f"[save_selected_features] Saved {out_df.shape} -> {out_path}")
+    return out_path
 
-
-# ── Core algorithm ────────────────────────────────────────────────────────
 
 def lasso_feature_selection(
     df: pd.DataFrame,
     target: str = "BTC/USD",
     alpha: str | float = "auto",
 ) -> tuple[list[str], pd.DataFrame]:
-    """LASSO regularisation-based feature selection. (Anthropic, 2024)"""
+    """Select features using LASSO regularisation.
+
+    Fits a LASSO (L1-penalised) linear model and retains only features
+    with non-zero coefficients.  When *alpha* is ``"auto"``, 5-fold
+    cross-validation (``LassoCV``) is used to choose the regularisation
+    strength automatically before fitting the final model.  Features are
+    standardised before fitting so the penalty is scale-independent.
+
+    Args:
+        df: Input DataFrame with features and target column.
+        target: Name of the target column.  Defaults to ``"BTC/USD"``.
+        alpha: Regularisation strength.  Pass ``"auto"`` to use
+            ``LassoCV``, or a positive float to fix the penalty.
+
+    Returns:
+        A tuple of:
+
+        * ``selected_features`` – list of retained column names.
+        * ``importance_scores`` – DataFrame with columns
+          ``Feature``, ``Score``, ``Selected`` for every input feature.
+    """
     print(f"\nInitialising LASSO feature selection...")
     print(f"Input shape   : {df.shape}")
     print(f"Target column : {target}")
@@ -161,6 +212,7 @@ def lasso_feature_selection(
 # ── Entry point ───────────────────────────────────────────────────────────
 
 def main() -> None:
+    """Parse CLI arguments, run LASSO selection, and save charts and the filtered CSV."""
     parser = argparse.ArgumentParser(
         description="LASSO regularisation-based feature selection."
     )

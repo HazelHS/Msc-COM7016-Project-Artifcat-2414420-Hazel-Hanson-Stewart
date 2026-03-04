@@ -19,6 +19,7 @@ import pandas as pd
 
 
 def main() -> None:
+    """Parse CLI arguments and interpolate missing values in the CSV."""
     parser = argparse.ArgumentParser(description="Interpolate missing values in a dataset CSV.")
     parser.add_argument("--dataset", required=True, help="Absolute path to the input CSV file.")
     args = parser.parse_args()

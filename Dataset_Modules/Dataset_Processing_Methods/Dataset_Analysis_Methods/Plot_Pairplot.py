@@ -40,6 +40,11 @@ import seaborn as sns
 
 
 def main() -> None:
+    """Parse CLI arguments and render a seaborn pairplot.
+
+    Loads the CSV and creates a scatter-matrix (pairplot) for all numeric
+    columns.  Auto-saves to *--output-dir* when provided.
+    """
     parser = argparse.ArgumentParser(
         description="Plot a pairplot for a dataset CSV."
     )

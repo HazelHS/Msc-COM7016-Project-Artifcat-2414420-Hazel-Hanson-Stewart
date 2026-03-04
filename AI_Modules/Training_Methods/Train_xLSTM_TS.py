@@ -300,6 +300,9 @@ def parse_args() -> argparse.Namespace:
     """
     Parse CLI arguments supplied by the TrainingConfigureWindow (xLSTM-TS panel).
     Argument names must match exactly what _build_cli_args() passes.
+
+    Returns:
+        Parsed argparse.Namespace with all xLSTM-TS training hyperparameters.
     """
     parser = argparse.ArgumentParser(
         description="Train the xLSTM-TS model (Lopez et al. 2024)."

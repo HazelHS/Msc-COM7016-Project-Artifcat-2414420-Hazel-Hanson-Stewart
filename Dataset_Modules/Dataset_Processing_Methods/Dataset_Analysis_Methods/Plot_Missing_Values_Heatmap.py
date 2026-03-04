@@ -33,6 +33,11 @@ import seaborn as sns
 
 
 def main() -> None:
+    """Parse CLI arguments and render a missing-values heatmap.
+
+    Loads the CSV, creates a boolean heatmap of missing entries, and
+    displays it.  Auto-saves to *--output-dir* when provided.
+    """
     parser = argparse.ArgumentParser(
         description="Plot a missing-values heatmap for a dataset CSV."
     )

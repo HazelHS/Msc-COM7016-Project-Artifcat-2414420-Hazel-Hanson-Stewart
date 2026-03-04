@@ -27,6 +27,19 @@ RATE_LIMIT_TIMEOUT = 2
 
 
 def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interval: str = "1d") -> pd.DataFrame:
+    """Download the CBOE OVX index from Yahoo Finance and re-index to *date_range*.
+
+    Args:
+        start_date: ISO date string (``YYYY-MM-DD``) for the download start.
+        end_date: ISO date string (``YYYY-MM-DD``) for the download end.
+        date_range: Full pandas DatetimeIndex to re-index the result onto.
+        interval: yfinance interval string (e.g. ``"1d"`` for daily).
+
+    Returns:
+        Single-column DataFrame indexed by *date_range* with column
+        ``Volatility_Crude Oil Volatility Index (OVX)`` holding the daily
+        crude-oil implied volatility readings.
+    """
     print("  Fetching ^OVX …")
     time.sleep(RATE_LIMIT_TIMEOUT)
     raw = yf.download("^OVX", start=start_date, end=end_date, interval=interval, progress=False)
@@ -37,6 +50,7 @@ def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interv
 
 
 def main() -> None:
+    """Parse CLI arguments, collect CBOE OVX data, and save the output CSV."""
     import argparse
     parser = argparse.ArgumentParser(description=OUTPUT_FILENAME)
     parser.add_argument("--start", default=None,

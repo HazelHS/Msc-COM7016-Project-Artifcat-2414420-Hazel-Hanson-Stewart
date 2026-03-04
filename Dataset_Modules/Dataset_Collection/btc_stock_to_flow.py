@@ -40,11 +40,43 @@ INITIAL_REWARD     = 50.0                               # BTC per block
 
 
 def _block_reward(block_height: int) -> float:
+    """Compute the BTC block reward at *block_height* from the halving schedule.
+
+    Args:
+        block_height: Cumulative block count since the genesis block.
+
+    Returns:
+        BTC reward per block as a float (halves every 210,000 blocks).
+    """
     halvings = block_height // HALVING_INTERVAL
     return INITIAL_REWARD / (2 ** halvings)
 
 
 def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, freq: str = "1d") -> pd.DataFrame:
+    """Compute the Bitcoin Stock-to-Flow ratio using the Blockchain.info API.
+
+    Fetches the cumulative total bitcoin supply from the Blockchain.info
+    ``charts/total-bitcoins`` endpoint, estimates daily new supply from the
+    halving schedule, and computes the S2F ratio and the PlanB model price
+    estimate (``exp(-1.84) * S2F ** 3.36``).
+
+    Args:
+        start_date: ISO date string (``YYYY-MM-DD``) for the request start.
+        end_date: ISO date string (``YYYY-MM-DD``) for the request end.
+        date_range: pandas DatetimeIndex to re-index the result onto.
+        freq: Data frequency string.  Must be a member of
+            ``BLOCKCHAIN_SUPPORTED_FREQS`` (``"1d"``, ``"5d"``,
+            ``"1wk"``, ``"1mo"``, ``"3mo"``).
+
+    Returns:
+        Single-column DataFrame indexed by *date_range* with column
+        ``BTC Stock-to-Flow (PlanB model price USD)``.
+        Returns an all-NaN DataFrame if the API request fails.
+
+    Raises:
+        UnsupportedIntervalError: If *freq* requests sub-daily granularity
+            that the Blockchain.info API does not support.
+    """
     if freq.lower() not in BLOCKCHAIN_SUPPORTED_FREQS:
         raise UnsupportedIntervalError(
             f"Blockchain.info API only provides daily-granularity data.  "
@@ -95,6 +127,7 @@ def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, freq: 
 
 
 def main() -> None:
+    """Parse CLI arguments, collect the BTC Stock-to-Flow series, and save the output CSV."""
     import argparse
     parser = argparse.ArgumentParser(description=OUTPUT_FILENAME)
     parser.add_argument("--start", default=None,

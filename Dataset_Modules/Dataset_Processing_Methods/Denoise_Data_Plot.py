@@ -54,8 +54,19 @@ from statsmodels.robust import mad
 # ── Time-series plot helpers (adapted from dataset.ipynb) ─────────────────────
 
 def plot_time_series(series, title, ax, color="blue", alpha=0.8, linewidth=1.5):
-    """Plot *series* as a line on *ax*."""
-    # (Anthropic, 2024)
+    """Plot *series* as a line on *ax*.
+
+    Args:
+        series: pandas Series with a DatetimeIndex.
+        title: Axis title string, or None to skip.
+        ax: matplotlib Axes to plot onto.
+        color: Line colour (default ``'blue'``).
+        alpha: Line opacity (default 0.8).
+        linewidth: Line width in points (default 1.5).
+
+    Returns:
+        The same *ax* object after plotting.
+    """
     ax.plot(series.index, series, color=color, alpha=alpha, linewidth=linewidth)
     if title is not None:
         ax.set_title(title, fontsize=11)
@@ -66,8 +77,13 @@ def plot_time_series(series, title, ax, color="blue", alpha=0.8, linewidth=1.5):
 
 
 def format_time_axis(ax, is_last=False):
-    """Apply date formatting to the x-axis of *ax*."""
-    # (Anthropic, 2024)
+    """Apply date formatting to the x-axis of *ax*.
+
+    Args:
+        ax: matplotlib Axes whose x-axis to format.
+        is_last: If True, show full date labels and tick marks;
+            if False, hide x-tick labels (for stacked plots).
+    """
     if not is_last:
         ax.set_xlabel("")
         plt.setp(ax.get_xticklabels(), visible=False)
@@ -94,15 +110,13 @@ def wavelet_denoising(df: pd.DataFrame, wavelet: str = "db4", level: int = 3) ->
       3. Soft thresholding:          T_λ(d) = sign(d)·max(|d|−λ, 0)
       4. Inverse transform + boundary correction.
 
-    Parameters
-    ----------
-    df      : Input DataFrame with a DatetimeIndex.
-    wavelet : PyWavelets wavelet name (default 'db4').
-    level   : Decomposition level (default 3).
+    Args:
+        df: Input DataFrame with a DatetimeIndex and numeric columns.
+        wavelet: PyWavelets wavelet name (default ``'db4'``).
+        level: Decomposition level (default 3).
 
-    Returns
-    -------
-    DataFrame of the same shape with denoised values.
+    Returns:
+        DataFrame of the same shape with denoised values.
     """
     # (Gil et al., 2024), (Anthropic, 2024)
     df_denoised = df.copy()
@@ -139,12 +153,18 @@ def wavelet_denoising(df: pd.DataFrame, wavelet: str = "db4", level: int = 3) ->
 # ── Plotting helpers ──────────────────────────────────────────────────────────
 
 def plot_denoising_results(original_df: pd.DataFrame, denoised_df: pd.DataFrame, column_name: str):
-    """
-    Create a two-panel figure for a single column showing:
-      Top   : original (blue) vs denoised (orange) signal.
-      Bottom: removed noise component (red).
+    """Create a two-panel figure for *column_name* showing original vs denoised.
 
-    Returns the matplotlib Figure.
+    Top panel: original (blue) vs denoised (orange) signal.
+    Bottom panel: removed noise component (red).
+
+    Args:
+        original_df: DataFrame containing the raw signal.
+        denoised_df: DataFrame containing the denoised signal.
+        column_name: Column to visualise.
+
+    Returns:
+        The matplotlib Figure object.
     """
     # (Anthropic, 2024)
     noise = original_df[column_name] - denoised_df[column_name]

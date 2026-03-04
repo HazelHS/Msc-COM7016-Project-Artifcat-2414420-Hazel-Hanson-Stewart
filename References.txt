@@ -1,0 +1,5 @@
+Google Python Style Guide - https://google.github.io/styleguide/pyguide.html 
+Anthropic. (2026). Claude sonnet 4.6. Retrieved 2026, from anthropic: https://www.anthropic.com/claude/sonnet
+OpenAI. (2026). ChatGPT 4.1. Retrieved 2026, from OpenAI: https://openai.com/index/gpt-4-1/
+conventional commits. (2025). https://www.conventionalcommits.org/en/v1.0.0/#summary. Retrieved from https://www.conventionalcommits.org: https://www.conventionalcommits.org/en/v1.0.0/#summary
+# (Anthropic, 2026)

@@ -16,6 +16,7 @@ import pandas as pd
 
 
 def main() -> None:
+    """Parse CLI arguments and report missing and duplicate data in the CSV."""
     parser = argparse.ArgumentParser(description="Check dataset for missing / duplicate data.")
     parser.add_argument("--dataset", required=True, help="Absolute path to the input CSV file.")
     args = parser.parse_args()

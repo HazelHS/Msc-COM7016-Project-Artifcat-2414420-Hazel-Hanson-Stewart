@@ -19,10 +19,21 @@ def fetch_blockchain_metric(
     end_date: str,
     date_range: pd.DatetimeIndex,
 ) -> pd.Series:
-    """
-    Fetch the chart at *metric_endpoint* (e.g. 'charts/hash-rate') from the
-    Blockchain.info API and return a Series re-indexed to *date_range*.
-    Returns an empty Series filled with NaN on any error.
+    """Fetch a time-series chart from the Blockchain.info public API.
+
+    Retrieves *metric_endpoint* (e.g. ``'charts/hash-rate'``) and
+    returns the values re-indexed to *date_range*.
+
+    Args:
+        metric_endpoint: Blockchain.info chart endpoint path
+            (e.g. ``'charts/hash-rate'``).
+        start_date: ISO date string ``'YYYY-MM-DD'`` for the request start.
+        end_date: ISO date string ``'YYYY-MM-DD'`` for the request end.
+        date_range: pandas DatetimeIndex to re-index the result onto.
+
+    Returns:
+        Series of float64 values aligned to *date_range*.  Returns a
+        NaN-filled Series on any network or parsing error.
     """
     start_ts = int(datetime.strptime(start_date, "%Y-%m-%d").timestamp())
     end_ts   = int(datetime.strptime(end_date,   "%Y-%m-%d").timestamp())

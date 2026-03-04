@@ -40,6 +40,11 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 # =============================================================================
 
 def parse_args() -> argparse.Namespace:
+    """Parse CLI arguments for the regression metrics evaluation script.
+
+    Returns:
+        argparse.Namespace with ``--model`` and ``--dataset`` paths.
+    """
     p = argparse.ArgumentParser(
         description="Evaluate regression error metrics (MAE, RMSE) for a trained model."
     )
@@ -63,6 +68,7 @@ def parse_args() -> argparse.Namespace:
 # =============================================================================
 
 def main() -> None:
+    """Load checkpoint, run inference on the test split, and display regression metric bars."""
     args = parse_args()
 
     # ── Load model and run inference ─────────────────────────────────────────

@@ -69,9 +69,18 @@ class MEMDSequenceDataset(Dataset):
         self.targets        = torch.FloatTensor(targets)         # [N]
 
     def __len__(self) -> int:
+        """Return the total number of sliding-window samples."""
         return len(self.targets)
 
     def __getitem__(self, idx: int):
+        """Return the (IMF windows, target) pair at index *idx*.
+
+        Args:
+            idx: Integer sample index.
+
+        Returns:
+            Tuple of (imf_sequences[idx], targets[idx]) as float32 tensors.
+        """
         return self.imf_sequences[idx], self.targets[idx]
 
 
@@ -80,13 +89,18 @@ class MEMDSequenceDataset(Dataset):
 # =============================================================================
 
 def _detect_input_columns(df: pd.DataFrame, target_col: str) -> list:
-    """
-    Attempt to identify Open, High, Low, Close, Volume columns via name
-    pattern matching.  Falls back to all numeric columns if fewer than 5
-    are identified.
+    """Identify OHLCV input columns via name-pattern matching.
 
-    The target_col is always treated as the Close channel.
-    Returns an ordered list of column names to feed as MEMD input channels.
+    Attempts to identify Open, High, Low, Close, Volume columns.  Falls
+    back to all numeric columns when fewer than 5 are found.  The
+    *target_col* is always treated as the Close channel.
+
+    Args:
+        df: Input DataFrame containing the dataset.
+        target_col: Name of the target (Close) column.
+
+    Returns:
+        Ordered list of column names to use as MEMD input channels.
     """
     all_numeric = [
         c for c in df.select_dtypes(include="number").columns
@@ -577,6 +591,9 @@ def parse_args() -> argparse.Namespace:
     """
     Parse CLI arguments supplied by the TrainingConfigureWindow (MEMD-TCN panel).
     Argument names match exactly what _build_cli_args() passes for MEMD scripts.
+
+    Returns:
+        Parsed argparse.Namespace with all MEMD-TCN training hyperparameters.
     """
     parser = argparse.ArgumentParser(
         description="Train the MEMD-TCN model (Yao et al. 2023)."

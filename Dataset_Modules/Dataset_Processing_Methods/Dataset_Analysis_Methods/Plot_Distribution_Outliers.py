@@ -35,6 +35,11 @@ import seaborn as sns
 
 
 def main() -> None:
+    """Parse CLI arguments and plot violin/outlier distributions per column.
+
+    Loads the CSV and produces violin plots alongside box plots for each
+    numeric column.  Auto-saves to *--output-dir* when provided.
+    """
     parser = argparse.ArgumentParser(
         description="Plot violin/outlier distributions for each column in a dataset CSV."
     )

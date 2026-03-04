@@ -72,6 +72,17 @@ class TrainingConfigureWindow:
     }
 
     def __init__(self, parent: tk.Widget, stage: dict) -> None:
+        """Open the training configuration window.
+
+        Reads the selected training script from *stage* to determine which
+        hyperparameter panel (xLSTM-TS or MEMD-TCN) to show, then builds all
+        widgets and starts the output-polling loop.
+
+        Args:
+            parent: Parent widget that owns this ``Toplevel``.
+            stage: Mutable stage dict from ``MainWindow._stages``; values are
+                written back via ``_save_to_stage`` on close.
+        """
         self._stage = stage
         self._dir   = stage["dir"]
         self._process: subprocess.Popen | None = None
@@ -108,6 +119,7 @@ class TrainingConfigureWindow:
     # ── Build ─────────────────────────────────────────────────────────
 
     def _build(self) -> None:
+        """Assemble all child widgets: dataset section, hyperparameter panels, buttons, and console."""
         outer = ttk.Frame(self._win, padding=10)
         outer.pack(fill="both", expand=True)
         outer.columnconfigure(0, weight=1)
@@ -299,6 +311,7 @@ class TrainingConfigureWindow:
             return "(none selected)"
 
     def _refresh_csvs(self) -> None:
+        """Repopulate the dataset combobox from the dataset_output folder."""
         csvs = discover_csvs(DATASET_OUTPUT_DIR)
         self._csv_combo["values"] = csvs
         if self._csv_var.get() not in csvs:
@@ -331,6 +344,7 @@ class TrainingConfigureWindow:
             self._save_dir_var.set(chosen)
 
     def _is_memd_script(self) -> bool:
+        """Return ``True`` if the currently selected training script targets the MEMD-TCN model."""
         name = self._current_script_name().lower()
         return "memd" in name or ("tcn" in name and "xlstm" not in name)
 
@@ -386,6 +400,7 @@ class TrainingConfigureWindow:
     # ── Run logic ─────────────────────────────────────────────────────
 
     def _on_run(self) -> None:
+        """Validate fields, build CLI args, and launch the training script as a subprocess."""
         script_name = self._current_script_name()
         if not script_name or script_name == "(none selected)":
             self._log(
@@ -438,18 +453,25 @@ class TrainingConfigureWindow:
             self._output_queue.put(None)  # sentinel
 
     def _on_stop(self) -> None:
+        """Terminate the running training subprocess."""
         if self._process and self._process.poll() is None:
             self._process.terminate()
         self._log("\n[Training process terminated by user]\n", tag="error")
         self._set_running(False)
 
     def _set_running(self, is_running: bool) -> None:
+        """Toggle Run/Stop button states.
+
+        Args:
+            is_running: When ``True`` the Run button is disabled and Stop enabled.
+        """
         self._run_btn.config(state="disabled" if is_running else "normal")
         self._stop_btn.config(state="normal"   if is_running else "disabled")
 
     # ── Output polling ────────────────────────────────────────────────
 
     def _poll_output(self) -> None:
+        """Drain the output queue and flush lines to the console; reschedule every 50 ms."""
         try:
             while True:
                 item = self._output_queue.get_nowait()
@@ -466,6 +488,12 @@ class TrainingConfigureWindow:
     # ── Console helpers ───────────────────────────────────────────────
 
     def _log(self, text: str, tag: str = "") -> None:
+        """Append *text* to the embedded console, optionally coloured by *tag*.
+
+        Args:
+            text: The string to append.
+            tag: Optional named tag for foreground colour.
+        """
         self._console.config(state="normal")
         if tag:
             self._console.insert("end", text, tag)
@@ -487,6 +515,7 @@ class TrainingConfigureWindow:
             self._stage[f"memd_{k}"] = v.get()
 
     def _on_close(self) -> None:
+        """Terminate any running subprocess, persist settings, and close the window."""
         if self._process and self._process.poll() is None:
             self._process.terminate()
         self._save_to_stage()

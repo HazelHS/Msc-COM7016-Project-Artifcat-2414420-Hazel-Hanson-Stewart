@@ -28,8 +28,7 @@ class UnsupportedIntervalError(ValueError):
 # ── yfinance timezone normalisation ───────────────────────────────────────────
 
 def strip_yf_tz(df: "pd.DataFrame") -> "pd.DataFrame":
-    """
-    Remove timezone information from a yfinance download result.
+    """Remove timezone information from a yfinance download result.
 
     yfinance returns UTC-aware timestamps for intraday intervals.  pandas
     cannot align a timezone-aware Series/DataFrame against the timezone-naive
@@ -39,6 +38,12 @@ def strip_yf_tz(df: "pd.DataFrame") -> "pd.DataFrame":
 
     Safe to call on daily/coarser data too – it is a no-op when the index
     is already timezone-naive.
+
+    Args:
+        df: DataFrame returned by ``yf.download()``.
+
+    Returns:
+        The same DataFrame with a timezone-naive DatetimeIndex.
     """
     import pandas as pd
     if not df.empty and getattr(df.index, "tz", None) is not None:
@@ -74,7 +79,16 @@ BLOCKCHAIN_SUPPORTED_FREQS: frozenset[str] = frozenset({
 
 
 def get_yf_interval(freq: str) -> str:
-    """Return the yfinance-compatible interval string for *freq*."""
+    """Return the yfinance-compatible interval string for *freq*.
+
+    Args:
+        freq: One of the yfinance-style frequency labels (e.g. ``'1d'``,
+            ``'1h'``, ``'1wk'``).
+
+    Returns:
+        The matching yfinance interval string, defaulting to ``'1d'`` for
+        unrecognised inputs.
+    """
     return YF_INTERVAL_MAP.get(freq.lower(), "1d")
 
 
@@ -83,30 +97,30 @@ def init_project_paths(
     end_date: str   = DEFAULT_END_DATE,
     freq: str       = DEFAULT_FREQ,
 ) -> dict:
-    """
-    Resolve project directories, create any missing folders and return a
-    dictionary of paths and the common date-range / empty DataFrame.
+    """Resolve project directories, create missing folders, and return paths.
 
-    Parameters
-    ----------
-    start_date : str
-        ISO date string (``YYYY-MM-DD``) for the beginning of the collection
-        window.
-    end_date : str
-        ISO date string (``YYYY-MM-DD``) for the end of the collection window.
-    freq : str
-        Frequency / interval – one of the yfinance-style labels:
-        ``"1m"``, ``"2m"``, ``"5m"``, ``"15m"``, ``"30m"``, ``"90m"``,
-        ``"1h"``, ``"1d"``, ``"5d"``, ``"1wk"``, ``"1mo"``, ``"3mo"``.
-        Defaults to ``"1d"``.
+    Creates ``dataset_output/`` and chart sub-directories if they do not
+    exist, then returns a dictionary of resolved paths and the common
+    date-range / empty DataFrame.
 
-    Returns a dict containing, among others:
+    Args:
+        start_date: ISO date string (``YYYY-MM-DD``) for the beginning of
+            the collection window.  Defaults to ``'2015-01-01'``.
+        end_date: ISO date string (``YYYY-MM-DD``) for the end of the
+            collection window.  Defaults to ``'2025-02-01'``.
+        freq: Frequency / interval – one of the yfinance-style labels:
+            ``'1m'``, ``'2m'``, ``'5m'``, ``'15m'``, ``'30m'``, ``'90m'``,
+            ``'1h'``, ``'1d'``, ``'5d'``, ``'1wk'``, ``'1mo'``, ``'3mo'``.
+            Defaults to ``'1d'``.
 
-    * ``"start_date"``, ``"end_date"``, ``"freq"`` – as supplied
-    * ``"pd_freq"``      – pandas offset alias (e.g. ``"D"``, ``"1min"``)
-    * ``"yf_interval"``  – yfinance interval string (e.g. ``"1d"``, ``"1m"``)
-    * ``"date_range"``   – :class:`pandas.DatetimeIndex`
-    * ``"df"``           – empty :class:`pandas.DataFrame` indexed by date_range
+    Returns:
+        dict containing:
+            ``'project_root'``, ``'output_dir'``, ``'output_path'`` (Path),
+            ``'start_date'``, ``'end_date'``, ``'freq'`` (as supplied),
+            ``'pd_freq'`` (pandas offset alias, e.g. ``'D'``),
+            ``'yf_interval'`` (yfinance interval string, e.g. ``'1d'``),
+            ``'date_range'`` (pandas DatetimeIndex),
+            ``'df'`` (empty DataFrame indexed by date_range).
     """
     # Navigate from  …/Dataset_Modules/Dataset_Collection/ → project root
     root = Path(__file__).resolve().parent.parent.parent

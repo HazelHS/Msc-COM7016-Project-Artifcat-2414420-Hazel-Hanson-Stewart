@@ -34,6 +34,11 @@ import seaborn as sns
 
 
 def main() -> None:
+    """Parse CLI arguments and render a correlation matrix heatmap.
+
+    Loads the CSV, computes pairwise correlations for numeric columns,
+    and displays the heatmap.  Auto-saves to *--output-dir* when provided.
+    """
     parser = argparse.ArgumentParser(
         description="Plot a correlation matrix heatmap for a dataset CSV."
     )

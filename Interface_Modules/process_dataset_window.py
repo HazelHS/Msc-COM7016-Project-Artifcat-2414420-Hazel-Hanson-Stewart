@@ -36,6 +36,13 @@ class ProcessDatasetWindow:
     CONSOLE_FG = "#d4d4d4"
 
     def __init__(self, parent: tk.Widget, stage: dict) -> None:
+        """Open the dataset-processing runner window.
+
+        Args:
+            parent: Parent widget that owns this ``Toplevel``.
+            stage: Mutable stage dict from ``MainWindow._stages``; used to
+                persist script selections and chosen CSV on close.
+        """
         self._stage = stage
         self._dir   = stage["dir"]
         self._process: subprocess.Popen | None = None
@@ -57,6 +64,7 @@ class ProcessDatasetWindow:
     # ── Build ──────────────────────────────────────────────────────────
 
     def _build(self) -> None:
+        """Assemble all child widgets: CSV picker, checklist, buttons, and console."""
         outer = ttk.Frame(self._win, padding=10)
         outer.pack(fill="both", expand=True)
         outer.columnconfigure(0, weight=1)
@@ -183,16 +191,19 @@ class ProcessDatasetWindow:
             self._csv_var.set(csvs[0] if csvs else "")
 
     def _select_all(self) -> None:
+        """Tick all script checkboxes."""
         for var in self._check_vars.values():
             var.set(True)
 
     def _deselect_all(self) -> None:
+        """Clear all script checkboxes."""
         for var in self._check_vars.values():
             var.set(False)
 
     # ── Run logic ──────────────────────────────────────────────────────
 
     def _on_run(self) -> None:
+        """Validate selections and enqueue checked scripts for sequential execution."""
         selected = sorted(name for name, var in self._check_vars.items() if var.get())
         if not selected:
             self._log("No scripts selected.\n", tag="error")
@@ -216,6 +227,7 @@ class ProcessDatasetWindow:
         self._start_next()
 
     def _start_next(self) -> None:
+        """Pop and launch the next script in the run queue."""
         if not self._run_queue:
             self._set_running(False)
             self._log("\n=== All processing scripts finished ===\n", tag="head")
@@ -253,18 +265,25 @@ class ProcessDatasetWindow:
             self._output_queue.put(None)  # sentinel
 
     def _on_stop(self) -> None:
+        """Terminate the running subprocess and clear the pending queue."""
         self._run_queue.clear()
         if self._process and self._process.poll() is None:
             self._process.terminate()
         self._log("\n[Process terminated by user - queue cleared]\n", tag="error")
 
     def _set_running(self, is_running: bool) -> None:
+        """Toggle Run/Stop button states.
+
+        Args:
+            is_running: When ``True`` the Run button is disabled and Stop enabled.
+        """
         self._run_btn.config(state="disabled" if is_running else "normal")
         self._stop_btn.config(state="normal"   if is_running else "disabled")
 
     # ── Output polling ───────────────────────────────────────────────
 
     def _poll_output(self) -> None:
+        """Drain the output queue and flush lines to the console; reschedule every 50 ms."""
         try:
             while True:
                 item = self._output_queue.get_nowait()
@@ -281,6 +300,12 @@ class ProcessDatasetWindow:
     # ── Console helpers ──────────────────────────────────────────────
 
     def _log(self, text: str, tag: str = "") -> None:
+        """Append *text* to the embedded console, optionally coloured by *tag*.
+
+        Args:
+            text: The string to append.
+            tag: Optional named tag for foreground colour.
+        """
         self._console.config(state="normal")
         if tag:
             self._console.insert("end", text, tag)

@@ -51,12 +51,30 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 def load_data(filepath: Path) -> pd.DataFrame:
+    """Load a CSV dataset from disk.
+
+    Args:
+        filepath: Absolute path to the CSV file.  The first column is
+            used as the DatetimeIndex.
+
+    Returns:
+        DataFrame with a DatetimeIndex and one column per feature.
+    """
     return pd.read_csv(filepath, index_col=0, parse_dates=True)
 
 
 def plot_feature_importance(scores_df: pd.DataFrame, method_name: str,
                              output_path: Path) -> None:
-    """Horizontal bar chart of selected feature importance scores."""
+    """Draw a horizontal bar chart of selected feature importance scores.
+
+    Args:
+        scores_df: DataFrame with columns ``Feature``, ``Selected``, and either
+            ``Score`` or ``Importance``.
+        method_name: Human-readable name of the selection method used as the
+            chart title suffix.
+        output_path: Destination path for the saved figure (unused — chart is
+            displayed interactively).
+    """
     selected = scores_df[scores_df["Selected"]].copy()
     score_col = "Score" if "Score" in selected.columns else "Importance"
 
@@ -85,14 +103,27 @@ def plot_feature_importance(scores_df: pd.DataFrame, method_name: str,
 def save_selected_features(df: pd.DataFrame, selected_features: list[str],
                             target: str, method_name: str,
                             dataset_stem: str) -> Path:
+    """Persist the selected feature subset as a CSV file.
+
+    Args:
+        df: Full input DataFrame (before feature selection).
+        selected_features: List of selected feature column names.
+        target: Name of the target column to append to the output.
+        method_name: Short label for the selection method (e.g.
+            ``"RandomForest"``).
+        dataset_stem: Stem of the input file name, used to construct
+            the output filename.
+
+    Returns:
+        :class:`pathlib.Path` of the written CSV file.
+    """
     final_cols = selected_features + [target]
-    df_sel = df[final_cols]
-    out = OUTPUT_DIR / f"{dataset_stem}_selected_features_{method_name}.csv"
-    df_sel.to_csv(out)
-    return out
+    out_df = df[final_cols]
+    out_path = OUTPUT_DIR / f"{dataset_stem}_{method_name}_selected.csv"
+    out_df.to_csv(out_path)
+    print(f"[save_selected_features] Saved {out_df.shape} -> {out_path}")
+    return out_path
 
-
-# ── Core algorithm ────────────────────────────────────────────────────────
 
 def random_forest_selection(
     df: pd.DataFrame,
@@ -103,7 +134,37 @@ def random_forest_selection(
     n_iterations: int = 10,
     n_jobs: int = -1,
 ) -> tuple[list[str], pd.DataFrame]:
-    """Window-based permutation importance feature selection. (Anthropic, 2024)"""
+    """Select features using window-based permutation importance with a Random Forest.
+
+    Slides a rolling window over the time-series, fits a Random Forest
+    regressor on each window, and measures permutation importance per
+    feature.  The mean importance across all windows is computed and
+    features at or above the 75th percentile are retained (top 25%).
+    Optionally applies Bayesian hyperparameter tuning via ``BayesSearchCV``
+    before the importance sweep.
+
+    Args:
+        df: Input DataFrame with features and target column.
+        target: Name of the target column.  Defaults to ``"BTC/USD"``.
+        window_size: Number of rows in each rolling window.
+        n_estimators: Number of trees per Random Forest.
+        perform_tuning: If ``True``, tune hyperparameters with
+            ``BayesSearchCV`` before computing importances.
+        n_iterations: Number of Bayesian search iterations (only used
+            when *perform_tuning* is ``True``).
+        n_jobs: Number of parallel jobs for the Random Forest and
+            window sweep (``-1`` uses all available CPUs).
+
+    Returns:
+        A tuple of:
+
+        * ``selected_features`` – list of retained column names.
+        * ``importance_scores`` – DataFrame with columns
+          ``Feature``, ``Score``, ``Selected`` for every input feature.
+
+    Raises:
+        ValueError: If *df* is empty.
+    """
     print(f"\nInitialising Random Forest feature selection...")
     print(f"Input shape   : {df.shape}")
     print(f"Target column : {target}")
@@ -225,6 +286,7 @@ def random_forest_selection(
 # ── Entry point ───────────────────────────────────────────────────────────
 
 def main() -> None:
+    """Parse CLI arguments, run Random Forest selection, and save charts and the filtered CSV."""
     parser = argparse.ArgumentParser(
         description="Window-based Random Forest permutation importance feature selection."
     )

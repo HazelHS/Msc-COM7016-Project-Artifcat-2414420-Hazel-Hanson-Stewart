@@ -29,6 +29,23 @@ RATE_LIMIT_TIMEOUT = 2
 
 
 def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interval: str = "1d") -> pd.DataFrame:
+    """Download Gold Futures and BTC/USD then compute the Gold/BTC price ratio.
+
+    Fetches GC=F (Gold Futures) and BTC-USD closing prices from Yahoo Finance
+    separately, aligns both series to *date_range*, then divides gold by bitcoin
+    to produce the Gold/BTC ratio.
+
+    Args:
+        start_date: ISO date string (``YYYY-MM-DD``) for the download start.
+        end_date: ISO date string (``YYYY-MM-DD``) for the download end.
+        date_range: Full pandas DatetimeIndex to re-index the result onto.
+        interval: yfinance interval string (e.g. ``"1d"`` for daily).
+
+    Returns:
+        Single-column DataFrame indexed by *date_range* with column
+        ``Gold/BTC Ratio``.  Dates where BTC price is zero or missing
+        are set to NaN.
+    """
     out = pd.DataFrame(index=date_range)
 
     print("  Fetching GC=F (Gold Futures) ...")
@@ -50,6 +67,7 @@ def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interv
 
 
 def main() -> None:
+    """Parse CLI arguments, collect the Gold/BTC ratio data, and save the output CSV."""
     import argparse
     parser = argparse.ArgumentParser(description=OUTPUT_FILENAME)
     parser.add_argument("--start", default=None,

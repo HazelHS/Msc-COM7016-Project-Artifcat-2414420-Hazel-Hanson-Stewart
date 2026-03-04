@@ -26,6 +26,23 @@ COLUMN_NAME     = "Global averaged stocks(USD)"
 
 
 def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interval: str = "1d") -> pd.DataFrame:
+    """Fetch seven global market indices and return their average USD closing price.
+
+    Iterates over ``GLOBAL_INDICES``, downloading each index via
+    :func:`__market_utils.fetch_index` which also performs currency conversion
+    to USD.  Columns ending in ``_Close_USD`` are averaged across all available
+    indices to produce a single blended global equity price series.
+
+    Args:
+        start_date: ISO date string (``YYYY-MM-DD``) for the download start.
+        end_date: ISO date string (``YYYY-MM-DD``) for the download end.
+        date_range: Full pandas DatetimeIndex to re-index the result onto.
+        interval: yfinance interval string (e.g. ``"1d"`` for daily).
+
+    Returns:
+        Single-column DataFrame indexed by *date_range* with column
+        ``Global averaged stocks(USD)``.  Dates with no data are NaN.
+    """
     combined = pd.DataFrame(index=date_range)
 
     for info in GLOBAL_INDICES.values():
@@ -43,6 +60,7 @@ def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interv
 
 
 def main() -> None:
+    """Parse CLI arguments, collect global average price data, and save the output CSV."""
     import argparse
     parser = argparse.ArgumentParser(description=OUTPUT_FILENAME)
     parser.add_argument("--start", default=None,
