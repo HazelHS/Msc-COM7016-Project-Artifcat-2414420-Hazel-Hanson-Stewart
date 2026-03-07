@@ -1,33 +1,26 @@
-"""
-eval_predictions_vs_actuals.py
--------------------------------
-Evaluation script — Predictions vs Actuals Time-Series Chart.
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
 
-Loads a trained model checkpoint and a dataset CSV, runs inference on the
-test split, then displays an overlaid line chart comparing:
-  • Actual values    (solid blue line)
-  • Predicted values (dashed red line)
+"""
+The eval_predictions_vs_actuals.py script shows the predictions vs Actuals Time-Series Chart, by 
+loading a trained model checkpoint and a dataset CSV, running inference on the test split, then 
+displaying an overlaid line chart comparing:
+    Actual values    (solid blue line)
+    Predicted values (dashed red line)
 
 A sample of up to 200 test-set steps is shown for visual clarity.
-
-Usage (standalone):
-    python eval_predictions_vs_actuals.py --model <path/to/model.pt> --dataset <path/to/data.csv>
-
-Usage (via Model Designer):
-    Launched automatically with --model and --dataset flags by the
-    "Model Evaluation Method" stage in Model Designer.
 """
 
 import argparse
 import sys
 from pathlib import Path
 
-# ── Path setup ───────────────────────────────────────────────────────────────
+# Path setup 
 _here = Path(__file__).resolve().parent
 if str(_here) not in sys.path:
     sys.path.insert(0, str(_here))
 
-# ── Project imports ───────────────────────────────────────────────────────────
+# Project imports
 from eval_utils import load_model_and_run_inference
 
 import numpy as np
@@ -36,16 +29,14 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-
-# =============================================================================
 # CLI
-# =============================================================================
-
-def parse_args() -> argparse.Namespace:
+def parse_args() -> argparse.Namespace: # (Anthropic, 2026)
     """Parse CLI arguments for the predictions-vs-actuals plot script.
 
     Returns:
-        argparse.Namespace with ``--model``, ``--dataset``, and ``--sample`` values.
+        An argparse.Namespace containing ``model`` (str path to the .pt
+        checkpoint), ``dataset`` (str path to the .csv file), and ``sample``
+        (int maximum number of test-set timesteps to display).
     """
     p = argparse.ArgumentParser(
         description="Plot predictions vs actuals for a trained model on a test dataset."
@@ -70,16 +61,19 @@ def parse_args() -> argparse.Namespace:
     )
     return p.parse_args()
 
-
-# =============================================================================
 # Main
-# =============================================================================
+def main() -> None: # (Anthropic, 2026)
+    """Load a checkpoint, run inference on the test split, and plot predictions vs actuals.
 
-def main() -> None:
-    """Load checkpoint, run inference on the test split, and plot predictions vs actuals."""
+    Delegates data loading and inference to ``load_model_and_run_inference``,
+    computes MAE and RMSE on the returned inverse-scaled arrays, prints a
+    summary to stdout, and renders an overlaid line chart with a shaded error
+    area via Matplotlib.  At most ``--sample`` evenly-spaced timesteps from
+    the test split are plotted.
+    """
     args = parse_args()
 
-    # ── Load model and run inference ─────────────────────────────────────────
+    # Load model and run inference 
     result = load_model_and_run_inference(args.model, args.dataset)
 
     predictions  = result["predictions"]
@@ -87,7 +81,7 @@ def main() -> None:
     model_name   = result["model_name"]
     dataset_name = result["dataset_name"]
 
-    # ── Summary metrics for subtitle ─────────────────────────────────────────
+    # Summary metrics for subtitle
     mae  = mean_absolute_error(actuals, predictions)
     rmse = np.sqrt(mean_squared_error(actuals, predictions))
 
@@ -99,13 +93,13 @@ def main() -> None:
     print(f"  Test samples plotted : {min(args.sample, len(actuals))}")
     print(f"{'=' * 55}\n")
 
-    # ── Build display sample ──────────────────────────────────────────────────
+    # Build display sample
     sample_size = min(args.sample, len(actuals))
     indices = np.linspace(0, len(actuals) - 1, sample_size, dtype=int)
     act_sample  = actuals[indices]
     pred_sample = predictions[indices]
 
-    # ── Plot ──────────────────────────────────────────────────────────────────
+    # Plot 
     fig, ax = plt.subplots(figsize=(12, 5))
 
     ax.plot(indices, act_sample,  "b-",  linewidth=1.2, label="Actual",    alpha=0.9)
@@ -139,7 +133,6 @@ def main() -> None:
     )
     plt.tight_layout(rect=[0, 0.06, 1, 1])
     plt.show()
-
 
 if __name__ == "__main__":
     main()

@@ -1,16 +1,8 @@
-﻿"""
-col_onchain_hash_rate.py
--------------------------
-Single-column dataset feature.
+﻿# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
 
-Column : Onchain Hash Rate (GH/s)
-Source : Blockchain.info API – charts/hash-rate
-         (estimated Bitcoin network hash rate in gigahashes per second)
-Output : Dataset_Modules/dataset_output/2015-2025_onchain_hash_rate.csv
-
-Run standalone:
-    python col_onchain_hash_rate.py
-Or select via Model Designer → Dataset Collection Method → Configure.
+"""
+col_onchain_hash_rate.py, creates a dataset of the Bitcoin network hash rate, sourced from the Blockchain.info API.
 """
 
 import os
@@ -25,25 +17,28 @@ OUTPUT_FILENAME = "onchain_hash_rate.csv"
 COLUMN_NAME     = "Onchain Hash Rate (GH/s)"
 ENDPOINT        = "charts/hash-rate"
 
-
-def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, freq: str = "1d") -> pd.DataFrame:
+def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, freq: str = "1d") -> pd.DataFrame: # (Anthropic, 2026)
     """Fetch the Bitcoin network hash rate from the Blockchain.info API.
 
+    The Blockchain.info API only provides daily-granularity data; sub-daily
+    frequencies are not supported and will raise UnsupportedIntervalError.
+
     Args:
-        start_date: ISO date string (``YYYY-MM-DD``) for the request start.
-        end_date: ISO date string (``YYYY-MM-DD``) for the request end.
-        date_range: pandas DatetimeIndex to re-index the result onto.
-        freq: Data frequency string.  Must be a member of
-            ``BLOCKCHAIN_SUPPORTED_FREQS`` (``"1d"``, ``"5d"``,
-            ``"1wk"``, ``"1mo"``, ``"3mo"``).
+        start_date: Request start date as an ISO string (YYYY-MM-DD).
+        end_date: Request end date as an ISO string (YYYY-MM-DD).
+        date_range: DatetimeIndex to re-index the downloaded data onto.
+            Dates absent from the API response are filled with NaN.
+        freq: Data frequency string.  Must be one of the values in
+            BLOCKCHAIN_SUPPORTED_FREQS: "1d", "5d", "1wk", "1mo",
+            or "3mo".  Defaults to "1d".
 
     Returns:
-        Single-column DataFrame indexed by *date_range* with column
-        ``Onchain Hash Rate (GH/s)``.
+        A single-column DataFrame indexed by date_range with column
+        "Onchain Hash Rate (GH/s)" containing the estimated network
+        hash rate in gigahashes per second.
 
     Raises:
-        UnsupportedIntervalError: If *freq* requests sub-daily granularity
-            that the Blockchain.info API does not support.
+        UnsupportedIntervalError: If freq is not in BLOCKCHAIN_SUPPORTED_FREQS.
     """
     if freq.lower() not in BLOCKCHAIN_SUPPORTED_FREQS:
         raise UnsupportedIntervalError(
@@ -57,9 +52,15 @@ def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, freq: 
     out[COLUMN_NAME] = fetch_blockchain_metric(ENDPOINT, start_date, end_date, date_range)
     return out
 
+def main() -> None:  # (Anthropic, 2026)
+    """Parse CLI arguments, collect Bitcoin hash rate data, and save the output CSV.
 
-def main() -> None:
-    """Parse CLI arguments, collect Bitcoin hash rate data, and save the output CSV."""
+    Accepts optional --start, --end, and --freq arguments to control the
+    date range and data frequency.  Defaults are sourced from
+    DEFAULT_START_DATE, DEFAULT_END_DATE, and "1d" respectively.  The
+    resulting CSV is written to the dataset output directory as
+    onchain_hash_rate.csv.
+    """
     import argparse
     parser = argparse.ArgumentParser(description=OUTPUT_FILENAME)
     parser.add_argument("--start", default=None,

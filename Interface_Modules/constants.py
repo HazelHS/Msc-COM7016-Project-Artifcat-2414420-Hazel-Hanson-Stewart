@@ -1,22 +1,17 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-constants.py
-------------
-Project-wide constants and pipeline stage definitions for the
+constants.py is the project-wide constants and pipeline stage definitions for the
 Model Designer application.
 """
 
 import os
 
-# ── Project root (two levels up from this file) ──────────────────────
+# (Anthropic, 2026)
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+"""Absolute path to the project root directory, resolved two levels up from this file."""
 
-# ── Pipeline stage definitions ────────────────────────────────────────
-# Each tuple: (display_label, path_relative_to_ROOT_DIR, multi_select,
-#              diagram_script_relative_to_ROOT_DIR | None)
-# multi_select=True  → Configure button with checkboxes
-# multi_select=False → single Combobox
-# diagram_script     → if set, renders a "Create Diagram" button that
-#                       runs that script
 PIPELINE_STAGES: list[tuple[str, str, bool, str | None]] = [
     (
         "Dataset Collection Method",
@@ -49,33 +44,42 @@ PIPELINE_STAGES: list[tuple[str, str, bool, str | None]] = [
         None,
     ),
 ]
+"""Ordered pipeline stage definitions used to populate the main-window UI.
 
-# ── Key output directories ────────────────────────────────────────────
+Each entry is a 4-tuple with the following fields:
 
-# Folder that holds the collected CSV datasets
+    display_label:  Human-readable stage name shown in the UI.
+    relative_path:  Path to the stage's module directory, relative to ROOT_DIR.
+    multi_select:   If True, the Configure button presents checkboxes allowing
+                    multiple selections.  If False, a single Combobox is shown.
+    diagram_script: Path to a diagram-rendering script relative to ROOT_DIR, or
+                    None if the stage has no associated diagram view.  When set,
+                    a "Create Diagram" button is rendered that executes the script.
+"""
+
 DATASET_OUTPUT_DIR = os.path.join(ROOT_DIR, "Dataset_Modules", "dataset_output")
+"""Absolute path to the directory that stores collected CSV dataset files."""
 
-# Folder that holds trained model checkpoint files
 TRAINED_MODEL_DIR = os.path.join(
     ROOT_DIR, "AI_Modules", "Training_Methods", "Trained_Model_Files"
 )
-
-# ── Data-frequency options (used by Dataset Collection configure panel) ──
+"""Absolute path to the directory that stores trained model checkpoint files."""
 
 FREQ_OPTIONS: list[str] = [
-    # ── Intraday ─────────────────────────────────────────────────────
     "1m", "2m", "5m", "15m", "30m", "90m", "1h",
-    # ── Daily / coarser ──────────────────────────────────────────────
     "1d", "5d", "1wk", "1mo", "3mo",
 ]
+"""Ordered list of data-frequency strings available in the Dataset Collection configure panel.
 
-# ── Stage-label sets that drive conditional UI in ConfigureWindow ─────
+Values map directly to yfinance interval identifiers.  The list is ordered
+from finest granularity (1-minute intraday) to coarsest (3-month).
+"""
 
-# Labels for which the Configure window shows the date/frequency panel.
 DATE_CONFIG_STAGES: set[str] = {"Dataset Collection Method"}
+"""Set of pipeline stage labels whose Configure window displays the date-range and frequency panel."""
 
-# Labels for which the Configure window shows the CSV dataset picker.
 DATASET_SELECT_STAGES: set[str] = {"Dataset Processing Method"}
+"""Set of pipeline stage labels whose Configure window displays the CSV dataset picker."""
 
-# Labels for which the Configure window shows trained-model + dataset pickers.
 EVAL_STAGES: set[str] = {"Model Evaluation Method"}
+"""Set of pipeline stage labels whose Configure window displays the trained-model and dataset pickers."""

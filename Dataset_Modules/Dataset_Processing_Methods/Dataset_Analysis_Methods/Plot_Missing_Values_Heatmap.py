@@ -1,26 +1,9 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-Plot_Missing_Values_Heatmap.py
-------------------------------
-Generates a heatmap highlighting missing (NaN) cells across all columns
+The Plot_Missing_Values_Heatmap.py script generates a heatmap highlighting missing (NaN) cells across all columns
 in a dataset CSV file and opens it in an interactive window.
-
-The interactive matplotlib window includes a save button (floppy-disk
-icon) in the toolbar — click it to export the figure to any folder and
-format you choose.
-
-An optional --output-dir argument will also auto-save the figure to
-that directory as ``missing_values_heatmap.png`` before the window opens.
-
-Usage (standalone):
-    python Plot_Missing_Values_Heatmap.py --dataset <path_to_csv>
-    python Plot_Missing_Values_Heatmap.py --dataset <path_to_csv> --output-dir <path_to_folder>
-
-When launched from the Model Designer GUI the --dataset argument is
-populated automatically from the dropdown selection.
-
-References:
-    Anthropic. (2024). Claude (claude-sonnet) [Large language model].
-    https://www.anthropic.com
 """
 
 import argparse
@@ -31,12 +14,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-
-def main() -> None:
+def main() -> None: # (Anthropic, 2026)
     """Parse CLI arguments and render a missing-values heatmap.
 
-    Loads the CSV, creates a boolean heatmap of missing entries, and
-    displays it.  Auto-saves to *--output-dir* when provided.
+    Loads the CSV at --dataset and produces a seaborn boolean heatmap
+    where each cell is coloured to indicate whether the corresponding
+    value is missing.  The figure is displayed interactively.  If
+    --output-dir is supplied the figure is also auto-saved to that
+    directory as missing_values_heatmap.png before the window opens.
     """
     parser = argparse.ArgumentParser(
         description="Plot a missing-values heatmap for a dataset CSV."
@@ -67,13 +52,13 @@ def main() -> None:
     total_missing = df.isna().sum().sum()
     print(f"Total missing cells: {total_missing}")
 
-    # ── Build plot ────────────────────────────────────────────────────
+    # Build plot
     plt.figure(figsize=(12, 8))
     sns.heatmap(df.isna(), cmap="viridis", cbar_kws={"label": "Missing Values"})
     plt.title("Missing Values Heatmap", fontsize=16)
     plt.tight_layout()
 
-    # ── Optional auto-save ────────────────────────────────────────────
+    # Optional auto-save
     if args.output_dir:
         out_dir = Path(args.output_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -91,7 +76,6 @@ def main() -> None:
 
     plt.show()
     print("=== Plot Missing Values Heatmap complete ===")
-
 
 if __name__ == "__main__":
     main()

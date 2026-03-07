@@ -1,23 +1,12 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-training_configure_window.py
-----------------------------
-TrainingConfigureWindow – configuration and execution window for the
-AI Training Method pipeline stage.
-
-Allows the user to:
-  - Pick a training script from the Training_Methods directory
-  - Pick an input dataset CSV and target column
-  - Configure model-specific hyperparameters (xLSTM-TS or MEMD-TCN)
-  - Launch / stop the training process
-  - Monitor console output
-
-Parameter groups are shown/hidden based on which training script is
-selected:
-  - Scripts whose filename contains 'memd' or 'tcn' → MEMD-TCN params
-  - All other scripts                               → xLSTM-TS params
-
-All configured values are persisted back into the stage dict when the
-window is closed, so they survive between re-opens.
+training_configure_window.py is a Tkinter Toplevel window that allows users to configure and execute 
+the AI training stage of the pipeline. It provides fields for selecting the dataset CSV, target column, 
+save directory, and hyperparameters specific to the chosen training method. The window launches the selected training 
+script as a subprocess, streaming its console output in real-time and allowing the user to stop the process if needed.
+All selections and hyperparameter values are persisted back to the stage dict for restoration on next open.
 """
 
 import os
@@ -33,18 +22,13 @@ import pandas as pd
 from .constants import DATASET_OUTPUT_DIR, TRAINED_MODEL_DIR, ROOT_DIR
 from .utils import discover_csvs
 
-
-class TrainingConfigureWindow:
-    """
-    Toplevel configuration and execution window for the AI Training
-    Method stage.
-    """
+class TrainingConfigureWindow: # (Anthropic, 2026)
+    """Toplevel configuration and execution window for the AI Training Method stage."""
 
     CONSOLE_BG = "#1e1e1e"
     CONSOLE_FG = "#d4d4d4"
 
-    # ── Default hyperparameter values ─────────────────────────────────
-
+    # Default hyperparameter values
     _XLSTM_DEFAULTS: dict[str, str] = {
         "sequence_length":          "60",
         "epochs":                   "200",
@@ -71,17 +55,17 @@ class TrainingConfigureWindow:
         "sd_threshold":    "0.2",
     }
 
-    def __init__(self, parent: tk.Widget, stage: dict) -> None:
-        """Open the training configuration window.
+    def __init__(self, parent: tk.Widget, stage: dict) -> None: # (Anthropic, 2026)
+        """Open the training configuration and execution window.
 
-        Reads the selected training script from *stage* to determine which
-        hyperparameter panel (xLSTM-TS or MEMD-TCN) to show, then builds all
-        widgets and starts the output-polling loop.
+        Reads the selected training script from stage to determine which
+        hyperparameter panel (xLSTM-TS or MEMD-TCN) to display, then builds
+        all widgets and starts the output-polling loop.
 
         Args:
-            parent: Parent widget that owns this ``Toplevel``.
-            stage: Mutable stage dict from ``MainWindow._stages``; values are
-                written back via ``_save_to_stage`` on close.
+            parent: Parent widget that owns this Toplevel.
+            stage: Mutable stage dict from MainWindow._stages. All configured
+                values are written back into this dict when the window is closed.
         """
         self._stage = stage
         self._dir   = stage["dir"]
@@ -116,16 +100,15 @@ class TrainingConfigureWindow:
         self._build()
         self._poll_output()
 
-    # ── Build ─────────────────────────────────────────────────────────
-
-    def _build(self) -> None:
-        """Assemble all child widgets: dataset section, hyperparameter panels, buttons, and console."""
+    # Build 
+    def _build(self) -> None: # (Anthropic, 2026)
+        """Assemble all child widgets: dataset section, hyperparameter panels, action buttons, and console."""
         outer = ttk.Frame(self._win, padding=10)
         outer.pack(fill="both", expand=True)
         outer.columnconfigure(0, weight=1)
         outer.rowconfigure(3, weight=1)
 
-        # ── Dataset section ───────────────────────────────────────────
+        # Dataset section
         dataset_frame = ttk.LabelFrame(outer, text="Dataset", padding=(8, 6))
         dataset_frame.grid(row=0, column=0, sticky="ew", pady=(0, 6))
         dataset_frame.columnconfigure(1, weight=1)
@@ -180,7 +163,7 @@ class TrainingConfigureWindow:
             dataset_frame, text="…", width=3, command=self._browse_save_dir
         ).grid(row=3, column=2, padx=(4, 0), pady=3)
 
-        # ── xLSTM-TS parameter panel ──────────────────────────────────
+        # xLSTM-TS parameter panel
         self._xlstm_frame = ttk.LabelFrame(
             outer,
             text="xLSTM-TS Hyperparameters  (Lopez et al. 2024)",
@@ -189,7 +172,7 @@ class TrainingConfigureWindow:
         self._xlstm_frame.grid(row=1, column=0, sticky="ew", pady=(0, 4))
         self._build_xlstm_params(self._xlstm_frame)
 
-        # ── MEMD-TCN parameter panel ──────────────────────────────────
+        # MEMD-TCN parameter panel
         self._memd_frame = ttk.LabelFrame(
             outer,
             text="MEMD-TCN Hyperparameters  (Yao et al. 2023 / Rehman & Mandic 2010)",
@@ -200,7 +183,7 @@ class TrainingConfigureWindow:
 
         self._on_script_changed()
 
-        # ── Buttons row ───────────────────────────────────────────────
+        # Buttons row 
         btn_row = ttk.Frame(outer)
         btn_row.grid(row=2, column=0, sticky="ew", pady=(4, 6))
 
@@ -214,7 +197,7 @@ class TrainingConfigureWindow:
         )
         self._run_btn.pack(side="right", padx=(0, 4))
 
-        # ── Console output ────────────────────────────────────────────
+        # Console output
         console_frame = ttk.LabelFrame(outer, text="Console Output", padding=(6, 4))
         console_frame.grid(row=3, column=0, sticky="nsew")
         console_frame.columnconfigure(0, weight=1)
@@ -236,10 +219,13 @@ class TrainingConfigureWindow:
         self._console.tag_config("dim",   foreground="#6a9955")
         self._console.tag_config("head",  foreground="#dcdcaa")
 
-    # ── Parameter panels ──────────────────────────────────────────────
+    # Parameter panels
+    def _build_xlstm_params(self, parent: ttk.Frame) -> None: # (Anthropic, 2026)
+        """Populate parent with a grid of labelled entry widgets for xLSTM-TS hyperparameters.
 
-    def _build_xlstm_params(self, parent: ttk.Frame) -> None:
-        """Grid of entry widgets for xLSTM-TS training hyperparameters."""
+        Args:
+            parent: The frame widget to place the parameter grid into.
+        """
         v = self._xlstm_vars
         params = [
             ("Sequence Length:",            "sequence_length",         0, 0),
@@ -263,8 +249,12 @@ class TrainingConfigureWindow:
                 row=row, column=col + 1, sticky="ew", pady=2, padx=(0, 4),
             )
 
-    def _build_memd_params(self, parent: ttk.Frame) -> None:
-        """Grid of entry widgets for MEMD-TCN training hyperparameters."""
+    def _build_memd_params(self, parent: ttk.Frame) -> None: # (Anthropic, 2026)
+        """Populate parent with a grid of labelled entry widgets for MEMD-TCN hyperparameters.
+
+        Args:
+            parent: The frame widget to place the parameter grid into.
+        """
         v = self._memd_vars
         params = [
             ("Sequence Length (lag):", "sequence_length", 0, 0),
@@ -301,25 +291,37 @@ class TrainingConfigureWindow:
             justify="left",
         ).grid(row=6, column=0, columnspan=4, sticky="w", pady=(8, 2))
 
-    # ── Script / CSV helpers ──────────────────────────────────────────
+    # Script / CSV helpers
+    def _current_script_name(self) -> str: # (Anthropic, 2026)
+        """Return the training script filename currently selected in the main-window combobox.
 
-    def _current_script_name(self) -> str:
-        """Return the script name currently selected in the main-window combobox."""
+        Returns:
+            The selected script filename, or "(none selected)" if no script
+            is chosen or the stage var is unavailable.
+        """
         try:
             return self._stage["var"].get() or "(none selected)"
         except Exception:
             return "(none selected)"
 
-    def _refresh_csvs(self) -> None:
-        """Repopulate the dataset combobox from the dataset_output folder."""
+    def _refresh_csvs(self) -> None: # (Anthropic, 2026)
+        """Repopulate the dataset combobox by scanning the dataset_output folder.
+
+        Also triggers a refresh of the target column combobox for the newly
+        selected CSV.
+        """
         csvs = discover_csvs(DATASET_OUTPUT_DIR)
         self._csv_combo["values"] = csvs
         if self._csv_var.get() not in csvs:
             self._csv_var.set(csvs[0] if csvs else "")
         self._refresh_target_columns()
 
-    def _refresh_target_columns(self) -> None:
-        """Populate the Target Column combobox from the headers of the selected CSV."""
+    def _refresh_target_columns(self) -> None: # (Anthropic, 2026)
+        """Populate the Target Column combobox with headers read from the selected CSV.
+
+        Reads only the header row of the CSV to avoid loading the full dataset.
+        Clears the combobox if no CSV is selected or the file cannot be read.
+        """
         csv_name = self._csv_var.get()
         if not csv_name:
             self._target_combo["values"] = []
@@ -334,8 +336,8 @@ class TrainingConfigureWindow:
         if self._target_var.get() not in cols:
             self._target_var.set(cols[0] if cols else "")
 
-    def _browse_save_dir(self) -> None:
-        """Open a folder-picker and update the save directory entry."""
+    def _browse_save_dir(self) -> None: # (Anthropic, 2026)
+        """Open a folder-picker dialog and update the save directory entry with the chosen path."""
         chosen = filedialog.askdirectory(
             title="Select folder to save trained model",
             initialdir=self._save_dir_var.get() or ROOT_DIR,
@@ -343,13 +345,21 @@ class TrainingConfigureWindow:
         if chosen:
             self._save_dir_var.set(chosen)
 
-    def _is_memd_script(self) -> bool:
-        """Return ``True`` if the currently selected training script targets the MEMD-TCN model."""
+    def _is_memd_script(self) -> bool: # (Anthropic, 2026)
+        """Return True if the currently selected training script targets the MEMD-TCN model.
+
+        Determined by checking whether the script filename contains 'memd' or
+        'tcn' (but not 'xlstm'), case-insensitively.
+        """
         name = self._current_script_name().lower()
         return "memd" in name or ("tcn" in name and "xlstm" not in name)
 
-    def _on_script_changed(self) -> None:
-        """Show/hide hyperparameter panels based on the selected script name."""
+    def _on_script_changed(self) -> None: # (Anthropic, 2026)
+        """Show the appropriate hyperparameter panel based on the selected script name.
+
+        Displays the MEMD-TCN panel for MEMD/TCN scripts and the xLSTM-TS
+        panel for all others, hiding the unused panel.
+        """
         if self._is_memd_script():
             self._xlstm_frame.grid_remove()
             self._memd_frame.grid()
@@ -357,10 +367,18 @@ class TrainingConfigureWindow:
             self._memd_frame.grid_remove()
             self._xlstm_frame.grid()
 
-    # ── CLI argument builder ──────────────────────────────────────────
+    # CLI argument builder 
+    def _build_cli_args(self) -> list[str]: # (Anthropic, 2026)
+        """Assemble the CLI argument list to pass to the selected training script.
 
-    def _build_cli_args(self) -> list[str]:
-        """Assemble the CLI argument list to pass to the training script."""
+        Reads the current dataset path, target column, save directory, and
+        all hyperparameter field values, then returns them formatted as a flat
+        list of alternating flag/value strings. The hyperparameter set used
+        depends on whether the selected script is an MEMD-TCN or xLSTM-TS script.
+
+        Returns:
+            A list of strings suitable for passing as extra_args to subprocess.Popen.
+        """
         csv_path   = os.path.join(DATASET_OUTPUT_DIR, self._csv_var.get())
         target_col = self._target_var.get().strip() or "BTC/USD"
         save_dir   = self._save_dir_var.get().strip()
@@ -397,10 +415,14 @@ class TrainingConfigureWindow:
             ]
         return args
 
-    # ── Run logic ─────────────────────────────────────────────────────
+    # Run logic 
+    def _on_run(self) -> None: # (Anthropic, 2026)
+        """Validate fields, build CLI arguments, and launch the training script as a subprocess.
 
-    def _on_run(self) -> None:
-        """Validate fields, build CLI args, and launch the training script as a subprocess."""
+        Logs an error and aborts if no training script is selected in the main
+        window or no dataset CSV has been chosen. Otherwise launches the script
+        on a background thread and enters the running state.
+        """
         script_name = self._current_script_name()
         if not script_name or script_name == "(none selected)":
             self._log(
@@ -429,8 +451,17 @@ class TrainingConfigureWindow:
             target=self._run_script, args=(script_path, extra_args), daemon=True
         ).start()
 
-    def _run_script(self, script_path: str, extra_args: list[str]) -> None:
-        """Execute the training script as a subprocess; stream output to console."""
+    def _run_script(self, script_path: str, extra_args: list[str]) -> None: # (Anthropic, 2026)
+        """Execute the training script as a subprocess and stream its output to the console.
+
+        Combines stdout and stderr into a single stream forwarded line-by-line
+        to the output queue. Pushes a None sentinel on completion so the poll
+        loop can return the window to idle.
+
+        Args:
+            script_path: Absolute path to the training script to execute.
+            extra_args: CLI arguments assembled by _build_cli_args.
+        """
         try:
             self._process = subprocess.Popen(
                 [sys.executable, script_path, *extra_args],
@@ -452,26 +483,31 @@ class TrainingConfigureWindow:
             self._process = None
             self._output_queue.put(None)  # sentinel
 
-    def _on_stop(self) -> None:
-        """Terminate the running training subprocess."""
+    def _on_stop(self) -> None: # (Anthropic, 2026)
+        """Terminate the active training subprocess and return the window to idle."""
         if self._process and self._process.poll() is None:
             self._process.terminate()
         self._log("\n[Training process terminated by user]\n", tag="error")
         self._set_running(False)
 
-    def _set_running(self, is_running: bool) -> None:
-        """Toggle Run/Stop button states.
+    def _set_running(self, is_running: bool) -> None: # (Anthropic, 2026)
+        """Toggle the Run and Stop buttons between running and idle states.
 
         Args:
-            is_running: When ``True`` the Run button is disabled and Stop enabled.
+            is_running: If True, disable the Run button and enable Stop.
+                If False, re-enable Run and disable Stop.
         """
         self._run_btn.config(state="disabled" if is_running else "normal")
         self._stop_btn.config(state="normal"   if is_running else "disabled")
 
-    # ── Output polling ────────────────────────────────────────────────
+    # Output polling 
+    def _poll_output(self) -> None: # (Anthropic, 2026)
+        """Drain pending lines from the output queue and write them to the console.
 
-    def _poll_output(self) -> None:
-        """Drain the output queue and flush lines to the console; reschedule every 50 ms."""
+        Reschedules itself every 50 ms via tk.after for the lifetime of the
+        window. A None sentinel emitted by the finished training script returns
+        the window to idle.
+        """
         try:
             while True:
                 item = self._output_queue.get_nowait()
@@ -485,14 +521,15 @@ class TrainingConfigureWindow:
             if self._win.winfo_exists():
                 self._win.after(50, self._poll_output)
 
-    # ── Console helpers ───────────────────────────────────────────────
-
-    def _log(self, text: str, tag: str = "") -> None:
-        """Append *text* to the embedded console, optionally coloured by *tag*.
+    # Console helpers
+    def _log(self, text: str, tag: str = "") -> None: # (Anthropic, 2026)
+        """Append text to the console widget, optionally applying a colour tag.
 
         Args:
-            text: The string to append.
-            tag: Optional named tag for foreground colour.
+            text: The string to append to the console.
+            tag: Named colour tag to apply (``'info'``, ``'error'``, ``'dim'``,
+                or ``'head'``). Pass an empty string or omit for the default
+                console colour.
         """
         self._console.config(state="normal")
         if tag:
@@ -502,10 +539,14 @@ class TrainingConfigureWindow:
         self._console.see("end")
         self._console.config(state="disabled")
 
-    # ── Persist + close ───────────────────────────────────────────────
+    # Persist + close 
+    def _save_to_stage(self) -> None: # (Anthropic, 2026)
+        """Write all current widget values back into the stage dict for persistence.
 
-    def _save_to_stage(self) -> None:
-        """Write all current values back to the stage dict for persistence."""
+        Saves the selected dataset CSV, target column, save directory, and all
+        xLSTM-TS and MEMD-TCN hyperparameter values so they are restored the
+        next time this window is opened.
+        """
         self._stage["dataset_csv"] = self._csv_var.get()
         self._stage["target_col"]  = self._target_var.get()
         self._stage["save_dir"]    = self._save_dir_var.get()
@@ -514,8 +555,8 @@ class TrainingConfigureWindow:
         for k, v in self._memd_vars.items():
             self._stage[f"memd_{k}"] = v.get()
 
-    def _on_close(self) -> None:
-        """Terminate any running subprocess, persist settings, and close the window."""
+    def _on_close(self) -> None: # (Anthropic, 2026)
+        """Terminate any running subprocess, persist all settings, and close the window."""
         if self._process and self._process.poll() is None:
             self._process.terminate()
         self._save_to_stage()

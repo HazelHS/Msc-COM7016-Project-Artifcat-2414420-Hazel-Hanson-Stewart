@@ -1,17 +1,8 @@
-﻿"""
-col_stocks_global_avg_volume.py
---------------------------------
-Single-column dataset feature.
+﻿# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
 
-Column : Global averaged stocks (volume)
-Source : Yahoo Finance – 7 major global indices, trading volumes averaged
-         (in millions, or thousands for Asian markets) across all indices
-         with data on each day.
-Output : Dataset_Modules/dataset_output/2015-2025_stocks_global_avg_volume.csv
-
-Run standalone:
-    python col_stocks_global_avg_volume.py
-Or select via Model Designer → Dataset Collection Method → Configure.
+"""
+col_stocks_global_avg_volume.py, creates a dataset of the global average stock trading volume, sourced from Yahoo Finance.
 """
 
 import os
@@ -25,24 +16,26 @@ from __market_utils import fetch_index, GLOBAL_INDICES
 OUTPUT_FILENAME = "stocks_global_avg_volume.csv"
 COLUMN_NAME     = "Global averaged stocks (volume)"
 
+def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interval: str = "1d") -> pd.DataFrame: # (Anthropic, 2026)
+    """Fetch seven global market indices and return their average trading volume.
 
-def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interval: str = "1d") -> pd.DataFrame:
-    """Fetch seven global market indices and return their average trading volume in millions.
-
-    Iterates over ``GLOBAL_INDICES``, downloading each index via
-    :func:`__market_utils.fetch_index`.  Columns ending in ``_Volume_M``
-    are averaged across all available indices to produce a single blended
-    global equity volume series.
+    Downloads each index defined in GLOBAL_INDICES and averages the
+    per-index volume columns (those ending in _Volume_M) across all
+    indices that have data on each day.  If no volume columns are
+    produced the output column is filled with NaN.
 
     Args:
-        start_date: ISO date string (``YYYY-MM-DD``) for the download start.
-        end_date: ISO date string (``YYYY-MM-DD``) for the download end.
-        date_range: Full pandas DatetimeIndex to re-index the result onto.
-        interval: yfinance interval string (e.g. ``"1d"`` for daily).
+        start_date: Download start date as an ISO string (YYYY-MM-DD).
+        end_date: Download end date as an ISO string (YYYY-MM-DD).
+        date_range: DatetimeIndex to re-index the downloaded data onto.
+            Dates absent from all indices are filled with NaN.
+        interval: yfinance interval string, e.g. "1d" for daily data.
+            Defaults to "1d".
 
     Returns:
-        Single-column DataFrame indexed by *date_range* with column
-        ``Global averaged stocks (volume)``.  Dates with no data are NaN.
+        A single-column DataFrame indexed by date_range with column
+        "Global averaged stocks (volume)" containing the mean trading
+        volume across all available global indices for each date.
     """
     combined = pd.DataFrame(index=date_range)
 
@@ -59,9 +52,15 @@ def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interv
         out[COLUMN_NAME] = float("nan")
     return out
 
+def main() -> None: # (Anthropic, 2026)
+    """Parse CLI arguments, collect global average volume data, and save the output CSV.
 
-def main() -> None:
-    """Parse CLI arguments, collect global average volume data, and save the output CSV."""
+    Accepts optional --start, --end, and --freq arguments to control the
+    date range and data frequency.  Defaults are sourced from
+    DEFAULT_START_DATE, DEFAULT_END_DATE, and "1d" respectively.  The
+    resulting CSV is written to the dataset output directory as
+    stocks_global_avg_volume.csv.
+    """
     import argparse
     parser = argparse.ArgumentParser(description=OUTPUT_FILENAME)
     parser.add_argument("--start", default=None,

@@ -1,21 +1,18 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-Train_xLSTM_TS.py
------------------
-Self-contained training script for the xLSTM-TS model.
-Based on Lopez et al. (2024).
+Self-contained training script for the xLSTM-TS model, based on the architecture and training methods described in Lopez et al. (2024).
 
-Launched by the AI Training Method stage in Model Designer via:
-    python Train_xLSTM_TS.py [CLI args]
-
-All hyperparameter arguments are populated by the TrainingConfigureWindow
-in Interface_Modules/main_window.py (xLSTM-TS panel).
+This script should be run in the Model Designer in the AI Training Method, all hyperparameter arguments are 
+populated by the TrainingConfigureWindow in Interface_Modules/main_window.py (xLSTM-TS panel).
 """
 
 import sys
 import argparse
 from pathlib import Path
 
-# ── Path setup ───────────────────────────────────────────────────────────────
+# Path setup
 root_path          = Path(__file__).resolve().parent.parent.parent
 model_designs_path = Path(__file__).resolve().parent.parent / "Model_Designs"
 training_path      = Path(__file__).resolve().parent
@@ -24,7 +21,7 @@ sys.path.insert(0, str(root_path))           # for dependency_checker
 sys.path.insert(0, str(model_designs_path))  # for xLSTM_TS
 sys.path.insert(0, str(training_path))       # for train_utils
 
-# ── Shared & model imports ────────────────────────────────────────────────────
+# Shared & model imports
 from train_utils import (
     SequenceDataset,
     temporal_train_val_test_split,
@@ -32,37 +29,39 @@ from train_utils import (
     make_sequences,
     create_dataloaders,
 )
+
 from dependency_checker import *   # torch, nn, optim, F, pd, np, tqdm, os …
 from xLSTM_TS import xLSTM_TS_Model, directional_loss, TrainingProgressTracker
 
 import torch
 import pandas as pd
 
-
-# =============================================================================
-# 1 — Data preparation
-# =============================================================================
-
+# 1. Data preparation
 def prepare_data(
     df: pd.DataFrame,
     target_col: str = "BTC/USD",
     sequence_length: int = 60,
     forecast_horizon: int = 7,
     split_ratios: tuple = (0.70, 0.15, 0.15),
-) -> dict | None:
-    """
-    Prepare data for xLSTM-TS training.
+) -> dict | None: # (Anthropic, 2026)
+    """Prepare a DataFrame for xLSTM-TS training.
+
+    Performs temporal splitting, feature scaling, and sliding-window sequence
+    construction. Adds a lagged-target synthetic feature if the DataFrame
+    contains only the target column. Returns None and prints an error message
+    if the input DataFrame is empty.
 
     Args:
-        df               : Raw DataFrame with time series data
-        target_col       : Column to forecast
-        sequence_length  : Look-back window (timesteps)
-        forecast_horizon : Steps ahead to predict
-        split_ratios     : (train, val, test) fractions
+        df: Raw DataFrame containing the time series data.
+        target_col: Name of the column to forecast.
+        sequence_length: Look-back window size in timesteps.
+        forecast_horizon: Number of steps ahead to predict.
+        split_ratios: A tuple (train, val, test) of fractional split sizes.
 
     Returns:
-        Dict with datasets, scalers, original actuals, and n_features.
-        Returns None on error.
+        A dict with keys "train_dataset", "val_dataset", "test_dataset",
+        "feature_scaler", "target_scaler", "y_train_original",
+        "original_test_actuals", and "n_features". Returns None on error.
     """
     if df.empty:
         print("[ERROR] Input DataFrame is empty.")
@@ -84,11 +83,11 @@ def prepare_data(
     ]
     print(f"Feature columns ({len(feature_columns)}): {feature_columns}")
 
-    # ── Temporal split ────────────────────────────────────────────────
+    # Temporal split 
     train_df, val_df, test_df = temporal_train_val_test_split(df, split_ratios)
     print(f"Splits — train: {len(train_df)}  val: {len(val_df)}  test: {len(test_df)}")
 
-    # ── Scale ─────────────────────────────────────────────────────────
+    # Scale
     scaled = fit_and_scale(train_df, val_df, test_df, feature_columns, target_col)
     feature_scaler = scaled["feature_scaler"]
     target_scaler  = scaled["target_scaler"]
@@ -97,7 +96,7 @@ def prepare_data(
     y_train_original       = train_df[target_col].values
     original_test_actuals  = test_df[target_col].values
 
-    # ── Build sliding-window sequences ────────────────────────────────
+    # Build sliding-window sequences
     print("\nBuilding sequences …")
     seq_progress = tqdm(total=3, desc="Sequence preparation")
 
@@ -130,10 +129,7 @@ def prepare_data(
         "n_features":           len(feature_columns),
     }
 
-
-# =============================================================================
-# 2 — Model setup
-# =============================================================================
+# 2. Model setup
 
 def setup_model(
     n_features: int,
@@ -141,19 +137,20 @@ def setup_model(
     embedding_dim: int = 64,
     output_size: int = 7,
     learning_rate: float = 1e-4,
-) -> dict:
-    """
-    Instantiate xLSTM-TS model, Adam optimiser, and ReduceLROnPlateau scheduler.
+) -> dict: # (Anthropic, 2026)
+    """Instantiate the xLSTM-TS model, Adam optimiser, and ReduceLROnPlateau scheduler.
+
+    Selects CUDA if available, otherwise CPU.
 
     Args:
-        n_features      : Number of input feature channels
-        sequence_length : Look-back window length
-        embedding_dim   : xLSTM embedding dimension
-        output_size     : Forecast horizon
-        learning_rate   : Initial Adam learning rate
+        n_features: Number of input feature channels.
+        sequence_length: Look-back window length in timesteps.
+        embedding_dim: Embedding dimension for xLSTM blocks.
+        output_size: Forecast horizon in timesteps.
+        learning_rate: Initial Adam learning rate.
 
     Returns:
-        Dict with model, optimizer, scheduler, device.
+        A dict with keys "model", "optimizer", "scheduler", and "device".
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -188,11 +185,7 @@ def setup_model(
         "device":    device,
     }
 
-
-# =============================================================================
-# 3 — Training loop
-# =============================================================================
-
+# 3. Training loop
 def train_model(
     model,
     train_loader,
@@ -202,26 +195,27 @@ def train_model(
     device,
     epochs: int = 200,
     early_stopping_patience: int = 30,
-):
-    """
-    Full training loop with:
-      - directional_loss (MSE + directional BCE, Lopez et al. 2024)
-      - gradient clipping (max_norm=1.0)
-      - early stopping
-      - best-model restore
+): # (Anthropic, 2026)
+    """Run the xLSTM-TS training loop and return the best model.
+
+    Uses directional_loss (MSE + directional BCE) from Lopez et al. (2024),
+    gradient clipping at max_norm=1.0, early stopping, and automatic restore
+    of the best-validation-loss model state at the end of training.
 
     Args:
-        model                   : xLSTM-TS PyTorch model
-        train_loader            : Training DataLoader
-        val_loader              : Validation DataLoader
-        optimizer               : Adam optimiser
-        scheduler               : ReduceLROnPlateau scheduler
-        device                  : cuda / cpu
-        epochs                  : Maximum number of training epochs
-        early_stopping_patience : Epochs without val improvement before stopping
+        model: xLSTM-TS PyTorch model to train.
+        train_loader: DataLoader for the training split.
+        val_loader: DataLoader for the validation split.
+        optimizer: Adam optimiser instance.
+        scheduler: ReduceLROnPlateau scheduler instance.
+        device: torch.device to run training on (cuda or cpu).
+        epochs: Maximum number of training epochs.
+        early_stopping_patience: Number of epochs without validation
+          improvement before training is stopped early.
 
     Returns:
-        model : Best model (restored from checkpoint)
+        The model with weights restored from the epoch that achieved the
+        lowest validation loss.
     """
     progress_tracker = TrainingProgressTracker(epochs, len(train_loader))
 
@@ -231,7 +225,7 @@ def train_model(
     max_grad_norm         = 1.0
 
     for epoch in range(epochs):
-        # ── Training phase ────────────────────────────────────────────
+        # Training phase
         model.train()
         train_loss = 0.0
         train_mae  = 0.0
@@ -254,7 +248,7 @@ def train_model(
         train_loss /= len(train_loader)
         train_mae  /= len(train_loader)
 
-        # ── Validation phase ──────────────────────────────────────────
+        # Validation phase 
         model.eval()
         val_loss = 0.0
         val_mae  = 0.0
@@ -269,7 +263,7 @@ def train_model(
         val_loss /= len(val_loader)
         val_mae  /= len(val_loader)
 
-        # ── Early stopping ────────────────────────────────────────────
+        # Early stopping
         if val_loss < best_val_loss:
             best_val_loss     = val_loss
             epochs_no_improve = 0
@@ -291,46 +285,43 @@ def train_model(
 
     return model
 
+# 4. CLI argument parser
+def parse_args() -> argparse.Namespace: # (Anthropic, 2026)
+    """Parse CLI arguments supplied by the TrainingConfigureWindow (xLSTM-TS panel).
 
-# =============================================================================
-# 4 — CLI argument parser
-# =============================================================================
-
-def parse_args() -> argparse.Namespace:
-    """
-    Parse CLI arguments supplied by the TrainingConfigureWindow (xLSTM-TS panel).
-    Argument names must match exactly what _build_cli_args() passes.
+    Argument names must match exactly what _build_cli_args() passes in the
+    Interface_Modules training configure window.
 
     Returns:
-        Parsed argparse.Namespace with all xLSTM-TS training hyperparameters.
+        An argparse.Namespace containing all xLSTM-TS training hyperparameters.
     """
     parser = argparse.ArgumentParser(
-        description="Train the xLSTM-TS model (Lopez et al. 2024)."
+        description="Train the xLSTM-TS model"
     )
-    # ── Dataset ───────────────────────────────────────────────────────
+    # Dataset 
     parser.add_argument("--dataset",    type=str,   default=None,
                         help="Absolute path to the input dataset CSV.")
     parser.add_argument("--target_col", type=str,   default="BTC/USD",
                         help="Column name of the forecast target.")
-    # ── Sequence / split ──────────────────────────────────────────────
+    # Sequence / split 
     parser.add_argument("--sequence_length",  type=int,   default=60,
                         help="Look-back window length (timesteps).")
     parser.add_argument("--train_split",      type=float, default=0.70,
                         help="Fraction of data for training.")
     parser.add_argument("--val_split",        type=float, default=0.15,
                         help="Fraction of data for validation.")
-    # ── Training loop ─────────────────────────────────────────────────
+    # Training loop 
     parser.add_argument("--epochs",                   type=int,   default=200)
     parser.add_argument("--batch_size",               type=int,   default=16)
     parser.add_argument("--early_stopping_patience",  type=int,   default=30)
-    # ── Model architecture ────────────────────────────────────────────
+    # Model architecture 
     parser.add_argument("--learning_rate",  type=float, default=1e-4,
                         help="Initial Adam learning rate.")
     parser.add_argument("--embedding_dim",  type=int,   default=64,
                         help="Embedding dimension for xLSTM blocks.")
     parser.add_argument("--output_size",    type=int,   default=7,
                         help="Forecast horizon in days.")
-    # ── Output ────────────────────────────────────────────────────────
+    # Output
     parser.add_argument(
         "--save_dir",
         type=str,
@@ -339,25 +330,25 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
+# 5. Orchestration
+def train_and_return_model(args: argparse.Namespace = None): # (Anthropic, 2026)
+    """Run the full xLSTM-TS pipeline: load data, prepare, build, train, and save.
 
-# =============================================================================
-# 5 — Orchestration
-# =============================================================================
-
-def train_and_return_model(args: argparse.Namespace = None):
-    """
-    Full pipeline: load data → prepare → build model → train → save.
+    Calls parse_args() to obtain hyperparameters when args is None. Saves the
+    trained model as a .pt file under args.save_dir.
 
     Args:
-        args : Parsed CLI args (uses parse_args() if None)
+        args: Parsed argparse.Namespace with training hyperparameters. If None,
+          parse_args() is called to read from the command line.
 
     Returns:
-        (model, test_loader, target_scaler, device)  or  None on failure
+        A tuple (model, test_loader, target_scaler, device) on success, or
+        None if data preparation fails.
     """
     if args is None:
         args = parse_args()
 
-    # ── Resolve dataset path ──────────────────────────────────────────
+    # Resolve dataset path
     if args.dataset:
         data_path = Path(args.dataset)
     else:
@@ -369,7 +360,7 @@ def train_and_return_model(args: argparse.Namespace = None):
         )
 
     print(f"\n{'='*60}")
-    print(f"  xLSTM-TS Training  —  Lopez et al. (2024)")
+    print(f" xLSTM-TS Training ")
     print(f"{'='*60}")
     print(f"  Dataset          : {data_path.name}")
     print(f"  Target column    : {args.target_col}")
@@ -391,7 +382,7 @@ def train_and_return_model(args: argparse.Namespace = None):
         round(1.0 - args.train_split - args.val_split, 6),
     )
 
-    # ── Prepare data ──────────────────────────────────────────────────
+    # Prepare data
     print("\n--- Preparing data ---")
     prepared = prepare_data(
         df,
@@ -410,7 +401,7 @@ def train_and_return_model(args: argparse.Namespace = None):
         batch_size=args.batch_size,
     )
 
-    # ── Set up model ──────────────────────────────────────────────────
+    # Set up model
     print("\n--- Setting up model ---")
     model_setup = setup_model(
         n_features=prepared["n_features"],
@@ -424,7 +415,7 @@ def train_and_return_model(args: argparse.Namespace = None):
     optimizer = model_setup["optimizer"]
     scheduler = model_setup["scheduler"]
 
-    # ── Train ─────────────────────────────────────────────────────────
+    # Train 
     print("\n--- Training ---")
     train_model(
         model,
@@ -439,7 +430,7 @@ def train_and_return_model(args: argparse.Namespace = None):
 
     print("\nTraining complete.")
 
-    # ── Save ──────────────────────────────────────────────────────────
+    # Save 
     save_dir = Path(args.save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -479,10 +470,6 @@ def train_and_return_model(args: argparse.Namespace = None):
 
     return model, loaders["test_loader"], prepared["target_scaler"], device
 
-
-# =============================================================================
 # Entry point
-# =============================================================================
-
 if __name__ == "__main__":
     train_and_return_model()

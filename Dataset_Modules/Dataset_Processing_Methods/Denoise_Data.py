@@ -1,38 +1,16 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-Denoise_Data.py
----------------
-Applies wavelet denoising to all numeric columns in a dataset CSV and
-saves the result alongside the original file as ``<stem>_denoised.csv``.
+The Denoise_Data.py script applies wavelet denoising to all numeric columns in a 
+dataset CSV, saves the denoised result except this time without ploting the result in a graph.
 
-Mathematical foundation:
-    The denoising pipeline consists of four steps applied per column:
-
-    1. Multi-level wavelet decomposition (default: Daubechies-4, 3 levels):
-           x(t) = A_J + D_J + D_{J-1} + ... + D_1
-
-    2. Universal soft-threshold estimation:
-           σ  = MAD(D_1) / 0.6745          (robust noise estimate)
-           λ  = σ · √(2·log(N)) · 0.8      (conservative threshold)
-
-    3. Soft thresholding of detail coefficients:
-           T_λ(d) = sign(d) · max(|d| − λ, 0)
-
-    4. Inverse wavelet transform to reconstruct the denoised signal.
-       Boundary effects are handled by truncating or edge-padding the
-       reconstructed signal to match the original length.
-
-Usage (standalone):
-    python Denoise_Data.py --dataset <path_to_csv>
-    python Denoise_Data.py --dataset <path_to_csv> --wavelet db4 --level 3
-
-When launched from the Model Designer GUI the --dataset argument is
-populated automatically from the dropdown selection.
-
-References:
-    Gil, M., et al. (2024). Stock index forecasting based on multivariate
-    empirical mode decomposition and temporal convolutional networks.
-    Anthropic. (2024). Claude (claude-sonnet) [Large language model].
-    https://www.anthropic.com
+The formula for wavelet denoising is derived from Lopez et al. (2024):
+    1. Multi-level decomposition:   x(t) = A_J + D_J + D_{J-1} + … + D_1
+    2. Universal threshold:         λ = σ·√(2·log(N))·0.8
+                                    σ = MAD(D_1) / 0.6745
+    3. Soft thresholding:           T_λ(d) = sign(d)·max(|d|−λ, 0)
+    4. Inverse wavelet transform + boundary correction.
 """
 
 import argparse
@@ -44,29 +22,26 @@ import pandas as pd
 import pywt
 from statsmodels.robust import mad
 
+# Core denoising
+def wavelet_denoising(df: pd.DataFrame, wavelet: str = "db4", level: int = 3) -> pd.DataFrame: # (Anthropic, 2026)
+    """Apply wavelet denoising to all numeric columns in a DataFrame.
 
-# ── Core denoising ────────────────────────────────────────────────────────────
-
-def wavelet_denoising(df: pd.DataFrame, wavelet: str = "db4", level: int = 3) -> pd.DataFrame:
-    """
-    Apply wavelet denoising to all numeric columns in *df*.
-
-    Steps (per column):
-      1. Multi-level decomposition:  x(t) = A_J + D_J + … + D_1
-      2. Universal threshold:        λ = σ·√(2·log(N))·0.8
-                                     σ = MAD(D_1) / 0.6745
-      3. Soft thresholding:          T_λ(d) = sign(d)·max(|d|−λ, 0)
-      4. Inverse transform + boundary correction.
+    Decomposes each numeric column using a multi-level discrete wavelet
+    transform, suppresses noise via universal soft thresholding on the detail
+    coefficients, then reconstructs the signal. The approximation coefficients
+    are left untouched. Non-numeric columns are copied through unchanged.
+    Boundary length mismatches after reconstruction are corrected by truncation
+    or edge-padding to match the original row count.
 
     Args:
-        df: Input DataFrame with a DatetimeIndex and numeric columns.
-        wavelet: PyWavelets wavelet name (default ``'db4'``).
-        level: Decomposition level (default 3).
+        df: Input DataFrame whose numeric columns are to be denoised.
+        wavelet: PyWavelets wavelet family name (default ``'db4'``).
+        level: Number of decomposition levels (default ``3``).
 
     Returns:
-        DataFrame of the same shape with denoised values.
+        A DataFrame of the same shape and index as ``df`` with denoised values
+        in every numeric column.
     """
-    # (Gil et al., 2024), (Anthropic, 2024)
     df_denoised = df.copy()
     numeric_cols = df.select_dtypes(include="number").columns.tolist()
 
@@ -97,15 +72,19 @@ def wavelet_denoising(df: pd.DataFrame, wavelet: str = "db4", level: int = 3) ->
 
     return df_denoised
 
+# Main
+def main() -> None: # (Anthropic, 2026)
+    """Wavelet-denoise numeric columns in a CSV file and save the result.
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+    Reads the dataset specified by the ``--dataset`` CLI argument, applies
+    :func:`wavelet_denoising` to all numeric columns, prints a per-column
+    summary of noise standard deviation against original and denoised signal
+    standard deviations, then writes the result to ``<stem>_denoised.csv``
+    in the same directory as the input.
 
-def main() -> None:
-    """Parse CLI arguments and run wavelet denoising on the specified CSV.
-
-    Loads the dataset, applies :func:`wavelet_denoising` to all numeric
-    columns, prints a per-column noise/signal summary, and saves the
-    denoised result as ``<stem>_denoised.csv`` in the same directory.
+    Raises:
+        SystemExit: If the input file does not exist, cannot be parsed as CSV,
+          or the output file cannot be written.
     """
     parser = argparse.ArgumentParser(
         description="Wavelet-denoise numeric columns in a dataset CSV."
@@ -147,14 +126,14 @@ def main() -> None:
         print("No numeric columns found. Denoising skipped.")
         sys.exit(0)
 
-    # ── Apply denoising ───────────────────────────────────────────────
+    # Apply denoising 
     print("=" * 60)
     print("WAVELET DENOISING")
     print("=" * 60)
 
     df_denoised = wavelet_denoising(df, wavelet=args.wavelet, level=args.level)
 
-    # ── Per-column summary ────────────────────────────────────────────
+    # Per-column summary 
     print(f"\n{'Column':<40}  {'Noise std':>12}  {'Signal std (orig)':>18}  {'Signal std (denoised)':>22}")
     print("-" * 100)
     for col in numeric_cols:
@@ -166,7 +145,7 @@ def main() -> None:
             f"{df_denoised[col].std():>22.6f}"
         )
 
-    # ── Save ──────────────────────────────────────────────────────────
+    # Save 
     out_path = input_path.parent / (input_path.stem + "_denoised.csv")
     try:
         df_denoised.to_csv(out_path)
@@ -177,7 +156,6 @@ def main() -> None:
         sys.exit(1)
 
     print("\n=== Denoise Data complete ===")
-
 
 if __name__ == "__main__":
     main()

@@ -1,68 +1,57 @@
-"""xLSTM-TS: Extended LSTM for Time-Series Forecasting.
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
 
-Implementation based on Lopez et al. (2024) “xLSTM-TS: Extended Long
+"""xLSTM-TS Time-Series Forecasting model.
+
+Implementation derived from Lopez et al. (2024) “xLSTM-TS: Extended Long
 Short-Term Memory for Time-Series Forecasting”.
 
-Architecture overview:
-  - sLSTM_Block : Scalar-memory LSTM layer with Conv1d + Multi-Head
-                  Attention + feed-forward network (Hayes et al., 2024).
-  - mLSTM_Block : Matrix-memory LSTM layer with ELU exponential gating
-                  and dual projection (Beck et al., 2024).
-  - xLSTM_TS_Model : Full 4-block stack (mLSTM → sLSTM → mLSTM → mLSTM)
-                     followed by attention-weighted temporal aggregation.
-
-Used by Train_xLSTM_TS.py (training) and eval_utils.py (inference).
+The model is constructed from three parts; sLSTM_Block (Scalar-memory LSTM layer with 
+Conv1d + Multi-Head, Attention + feed-forward network), mLSTM_Block (Matrix-memory 
+LSTM layer with ELU exponential gating and dual projection) and xLSTM_TS_Model (Full 
+4-block stack (mLSTM → sLSTM → mLSTM → mLSTM, followed by 
+attention-weighted temporal aggregation).
 """
 
-# ── Path bootstrap ──────────────────────────────────────────────────────────
 import sys
 from pathlib import Path
 
-# Insert the project root so dependency_checker can be resolved regardless
-# of the current working directory when the script is launched.
+# Insert the project root so dependency_checker can be resolved regardless of the current working directory when the script is launched.
 root_path = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(root_path))
 
-# Star-import exposes: torch, nn, optim, F, Dataset, DataLoader,
-# ReduceLROnPlateau, pd, np, MinMaxScaler, tqdm, os, Path
 from dependency_checker import *
 import torch.nn.functional as F
 
-class SequenceDataset(Dataset):
+class SequenceDataset(Dataset): # (Anthropic, 2026)
     """PyTorch Dataset for sliding-window time-series sequences.
 
-    Wraps pre-built feature and target arrays so they can be consumed
-    directly by a PyTorch DataLoader.
-
     Args:
-        features: ndarray of shape [N, sequence_length, n_features]
-            Input feature windows.
-        targets: ndarray of shape [N, forecast_horizon]
-            Corresponding target windows.
+        features: Feature array of shape [N, sequence_length, n_features].
+        targets: Target array of shape [N, forecast_horizon].
     """
 
-    def __init__(self, features, targets):
-        """Stores feature and target arrays for later retrieval."""
+    def __init__(self, features, targets): # (Anthropic, 2026)
+        """Store feature and target arrays as instance attributes."""
         self.features = features
         self.targets = targets
 
-    def __len__(self):
-        """Return the total number of sequence samples in the dataset."""
+    def __len__(self): # (Anthropic, 2026)
+        """Return the total number of sequence samples."""
         return len(self.features)
 
-    def __getitem__(self, idx):
-        """Return the (feature_tensor, target_tensor) pair at *idx*.
+    def __getitem__(self, idx): # (Anthropic, 2026)
+        """Return the (feature_tensor, target_tensor) pair at index idx.
 
         Args:
             idx: Integer sample index.
 
         Returns:
-            A tuple (X, y) of float32 tensors converted on-the-fly from
-            the underlying numpy arrays.
+            A tuple (X, y) of float32 tensors.
         """
         return torch.FloatTensor(self.features[idx]), torch.FloatTensor(self.targets[idx])
 
-def directional_loss(y_true: torch.Tensor, y_pred: torch.Tensor) -> torch.Tensor:
+def directional_loss(y_true: torch.Tensor, y_pred: torch.Tensor) -> torch.Tensor: # (Anthropic, 2026)
     """Compute a combined MSE + directional-accuracy loss.
 
     Args:
@@ -70,7 +59,7 @@ def directional_loss(y_true: torch.Tensor, y_pred: torch.Tensor) -> torch.Tensor
         y_pred: Predicted tensor of shape [batch, forecast_horizon].
 
     Returns:
-        Scalar loss tensor combining MSE with directional BCE.
+        A scalar loss tensor.
     """
     # MSE component
     mse = F.mse_loss(y_pred, y_true)
@@ -90,26 +79,22 @@ def directional_loss(y_true: torch.Tensor, y_pred: torch.Tensor) -> torch.Tensor
     # return alpha * mse + (1 - alpha) * directional_scaled
     return F.mse_loss(y_pred, y_true) # lopez paper's loss function
 
+class sLSTM_Block(nn.Module): # (Anthropic, 2026)
+    """Scalar-memory LSTM block.
 
-class sLSTM_Block(nn.Module):
-    """Scalar-Memory LSTM block with convolutional pre-processing.
-
-    Implements the sLSTM variant from Hayes et al. (2024) / Lopez et al.
-    (2024) section 3.1:  LayerNorm → Conv1d → LSTM → MultiheadAttention
-    → feed-forward → residual add.
+    Applies LayerNorm, Conv1d, LSTM, MultiheadAttention, and a feed-forward
+    network in sequence, then adds the block input as a residual.
 
     Args:
-        input_dim: Number of input feature channels (matches embedding_dim
-            after the initial projection layer).
-        embedding_dim: Output / hidden dimension for Conv, LSTM, and
-            Attention layers.
+        input_dim: Number of input feature channels.
+        embedding_dim: Output and hidden dimension for Conv, LSTM, and Attention.
         kernel_size: Convolution kernel width for the Conv1d layer.
         num_heads: Number of heads for MultiheadAttention.
-        ff_factor: Expansion ratio for the feed-forward network hidden
-            layer (ff_dim = embedding_dim * ff_factor).
+        ff_factor: Expansion ratio for the feed-forward hidden layer;
+          ff_dim = embedding_dim * ff_factor.
     """
 
-    def __init__(self, input_dim, embedding_dim=64, kernel_size=2, num_heads=2, ff_factor=1.1):
+    def __init__(self, input_dim, embedding_dim=64, kernel_size=2, num_heads=2, ff_factor=1.1): # (Anthropic, 2026)
         """Build all sub-layers of the sLSTM block."""
         super(sLSTM_Block, self).__init__()
         self.layer_norm = nn.LayerNorm(input_dim)
@@ -134,16 +119,14 @@ class sLSTM_Block(nn.Module):
             nn.Linear(ff_dim, embedding_dim)
         )
 
-    def forward(self, x):
+    def forward(self, x): # (Anthropic, 2026)
         """Compute the sLSTM block forward pass.
 
         Args:
             x: Input tensor of shape [batch, sequence_length, input_dim].
 
         Returns:
-            Tensor of shape [batch, sequence_length, embedding_dim] after
-            applying LayerNorm, Conv1d, LSTM, MultiheadAttention,
-            feed-forward network, and a residual addition.
+            Tensor of shape [batch, sequence_length, embedding_dim].
         """
         # Apply layer normalisation before the sub-layers (pre-LN style)
         norm_x = self.layer_norm(x)
@@ -162,31 +145,26 @@ class sLSTM_Block(nn.Module):
         return x + ff_out
 
 
-class mLSTM_Block(nn.Module):
-    """Matrix-Memory LSTM block with exponential gating via ELU+1.
+class mLSTM_Block(nn.Module): # (Anthropic, 2026)
+    """Matrix-memory LSTM block with ELU+1 exponential gating.
 
-    Approximates the mLSTM variant (Beck et al., 2024; Lopez et al., 2024
-    section 3.2):  LayerNorm → Conv1d+ELU+1 → LSTM → MultiheadAttention
-    → dual linear projection → residual add.
-
-    The ELU+1 activation approximates the exponential gates described in
-    the original mLSTM paper without requiring custom CUDA kernels.
+    Applies LayerNorm, Conv1d with ELU+1 activation, LSTM, MultiheadAttention,
+    and a two-layer projection bottleneck, then adds the block input as a residual.
 
     Args:
         input_dim: Number of input feature channels.
         embedding_dim: Hidden dimension for all sub-layers.
         kernel_size: Conv1d kernel width.
         projection_size: Multiplier applied to embedding_dim in the first
-            projection linear layer (then projected back down).
+          projection layer before projecting back down.
         num_heads: Number of MultiheadAttention heads.
     """
 
-    def __init__(self, input_dim, embedding_dim=64, kernel_size=4, projection_size=2, num_heads=2):
+    def __init__(self, input_dim, embedding_dim=64, kernel_size=4, projection_size=2, num_heads=2): # (Anthropic, 2026)
         """Build Conv, ELU, LSTM, Attention, and projection sub-layers."""
         super(mLSTM_Block, self).__init__()
         self.layer_norm = nn.LayerNorm(input_dim)
         # Fix padding to preserve sequence length
-        #if kernel_size % 2 == 1:
         padding = kernel_size // 2
         #else:
         #    padding = kernel_size // 2 - 1
@@ -207,22 +185,19 @@ class mLSTM_Block(nn.Module):
         self.projection1 = nn.Linear(embedding_dim, embedding_dim * projection_size)
         self.projection2 = nn.Linear(embedding_dim * projection_size, embedding_dim)
 
-    def forward(self, x):
+    def forward(self, x): # (Anthropic, 2026)
         """Compute the mLSTM block forward pass.
 
         Args:
             x: Input tensor of shape [batch, sequence_length, input_dim].
 
         Returns:
-            Tensor of shape [batch, sequence_length, embedding_dim] after
-            applying LayerNorm, Conv1d with ELU+1 gating, LSTM,
-            MultiheadAttention, a two-layer projection, and residual add.
+            Tensor of shape [batch, sequence_length, embedding_dim].
         """
         # Apply layer normalisation before the sub-layers (pre-LN style)
         norm_x = self.layer_norm(x)
 
-        # Conv1d + ELU + 1.0: the +1 keeps values positive, approximating
-        # the exponential gate in the matrix-memory LSTM formulation.
+        # Conv1d + ELU + 1.0: the +1 keeps values positive, approximating the exponential gate in the matrix-memory LSTM formulation.
         conv_x = self.elu(self.conv(norm_x.transpose(1, 2))).transpose(1, 2) + 1.0
 
         # Sequence modelling; hidden/cell states discarded (stateless)
@@ -238,28 +213,23 @@ class mLSTM_Block(nn.Module):
         # Add input residual so gradients flow cleanly through the block
         return x + proj
 
+class xLSTM_TS_Model(nn.Module): # (Anthropic, 2026)
+    """Complete xLSTM-TS model following Lopez et al. (2024).
 
-class xLSTM_TS_Model(nn.Module):
-    """Complete xLSTM-TS model matching Lopez et al. (2024) specifications.
-
-    Block stack (4 blocks):
-      mLSTM → sLSTM → mLSTM → mLSTM
-
-    After the block stack the final hidden state sequence is aggregated
-    via an attention-weighted sum (learned temporal pooling) before a
-    linear output projection produces the multi-step forecast.
+    Stacks four xLSTM blocks (mLSTM → sLSTM → mLSTM → mLSTM), then
+    aggregates the output sequence via attention-weighted temporal pooling
+    before a linear projection produces the multi-step forecast.
 
     Args:
         input_shape: Tuple (sequence_length, n_features) describing the
-            look-back window dimensions.
+          look-back window dimensions.
         embedding_dim: Common hidden dimension used across all blocks.
-        output_size: Length of the forecast horizon (number of future
-            timesteps to predict).
+        output_size: Number of future timesteps to predict.
     """
 
-    def __init__(self, input_shape, embedding_dim=64, output_size=7):
-        """Build all sub-layers: initial projection, 4 xLSTM blocks,
-        final LayerNorm, attention aggregator, and output projection."""
+    def __init__(self, input_shape, embedding_dim=64, output_size=7): # (Anthropic, 2026)
+        """Build all layers: initial projection, four xLSTM blocks, layer norm,
+        attention aggregator, and output projection."""
         super(xLSTM_TS_Model, self).__init__()
         
         sequence_length, n_features = input_shape
@@ -303,15 +273,14 @@ class xLSTM_TS_Model(nn.Module):
         # Final linear projection to output
         self.output_projection = nn.Linear(embedding_dim, output_size)
         
-    def forward(self, x):
+    def forward(self, x): # (Anthropic, 2026)
         """Run a forward pass through the full xLSTM-TS model.
 
         Args:
             x: Input tensor of shape [batch, sequence_length, n_features].
 
         Returns:
-            Prediction tensor of shape [batch, output_size] containing
-            the forecasted values for the next *output_size* timesteps.
+            Prediction tensor of shape [batch, output_size].
         """
         # Project raw features to the shared embedding dimension
         x = self.initial_projection(x)      # [batch, seq_len, embedding_dim]
@@ -335,33 +304,30 @@ class xLSTM_TS_Model(nn.Module):
 
         return x
 
-
-class TrainingProgressTracker:
+class TrainingProgressTracker: # (Anthropic, 2026)
     """Epoch- and batch-level tqdm progress tracker for the training loop.
 
-    Replaces the Keras-style TrainingProgressCallback with a pure PyTorch /
-    tqdm equivalent.  A new tqdm bar is created at the start of each epoch
-    and updated after every batch, then closed at the end of the epoch.
+    A new tqdm bar is created at the start of each epoch and updated after
+    every batch, then closed at the end of the epoch.
 
     Args:
         total_epochs: Total number of training epochs.
-        steps_per_epoch: Number of mini-batches per epoch (for the bar
-            total).
+        steps_per_epoch: Number of mini-batches per epoch.
     """
 
-    def __init__(self, total_epochs: int, steps_per_epoch: int) -> None:
+    def __init__(self, total_epochs: int, steps_per_epoch: int) -> None: # (Anthropic, 2026)
         """Initialise bookkeeping variables; no tqdm bar is created yet."""
         self.total_epochs = total_epochs
         self.steps_per_epoch = steps_per_epoch
         self.current_epoch = 0
         self.pbar = None    # tqdm bar; created at the start of each epoch
 
-    def update_batch(self, batch_loss: float, batch_mae: float) -> None:
+    def update_batch(self, batch_loss: float, batch_mae: float) -> None: # (Anthropic, 2026)
         """Advance the tqdm bar by one step and refresh the postfix metrics.
 
         Args:
-            batch_loss: Mini-batch training loss (scalar).
-            batch_mae: Mini-batch mean absolute error (scalar).
+            batch_loss: Mini-batch training loss.
+            batch_mae: Mini-batch mean absolute error.
         """
         if self.pbar is not None:
             self.pbar.set_postfix({
@@ -376,12 +342,12 @@ class TrainingProgressTracker:
         epoch_loss: float,
         val_loss: float | None = None,
         epoch_mae: float | None = None,
-    ) -> None:
-        """Close the current epoch's bar and open one for the next epoch.
+    ) -> None: # (Anthropic, 2026)
+        """Close the current epoch's tqdm bar and open a fresh one for the next epoch.
 
         Args:
             epoch_loss: Mean training loss for the completed epoch.
-            val_loss: Optional validation loss (not currently displayed).
+            val_loss: Optional validation loss for the completed epoch.
             epoch_mae: Optional mean absolute error for the completed epoch.
         """
         # Close the bar that belonged to the just-finished epoch
@@ -404,10 +370,7 @@ class TrainingProgressTracker:
                 }
             )
 
-    def close(self) -> None:
-        """Close the active tqdm bar, if one is open.
-
-        Safe to call even when no bar exists (no-op in that case).
-        """
+    def close(self) -> None: # (Anthropic, 2026)
+        """Close the active tqdm bar if one is open."""
         if self.pbar is not None:
             self.pbar.close()

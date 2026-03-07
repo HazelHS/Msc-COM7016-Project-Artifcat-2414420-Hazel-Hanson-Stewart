@@ -1,17 +1,9 @@
-﻿"""
-col_currency_gold_btc_ratio.py
--------------------------------
-Single-column dataset feature.
+﻿# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
 
-Column : Gold/BTC Ratio
-Source : Yahoo Finance – GC=F (Gold Futures) and BTC-USD (Bitcoin price).
-         Ratio = Gold price / BTC price.  Days where BTC price is zero or
-         missing are left as NaN.
-Output : Dataset_Modules/dataset_output/2015-2025_currency_gold_btc_ratio.csv
-
-Run standalone:
-    python col_currency_gold_btc_ratio.py
-Or select via Model Designer → Dataset Collection Method → Configure.
+"""
+col_currency_gold_btc_ratio.py, creates a single-column dataset feature dataset for the ratio of Gold Futures to 
+BTC/USD closing prices, sourced from Yahoo Finance.
 """
 
 import os
@@ -27,24 +19,22 @@ OUTPUT_FILENAME    = "currency_gold_btc_ratio.csv"
 COLUMN_NAME        = "Gold/BTC Ratio"
 RATE_LIMIT_TIMEOUT = 2
 
+def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interval: str = "1d") -> pd.DataFrame: # (Anthropic, 2026)
+    """Download Gold Futures and BTC/USD closing prices, then compute the Gold/BTC ratio.
 
-def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interval: str = "1d") -> pd.DataFrame:
-    """Download Gold Futures and BTC/USD then compute the Gold/BTC price ratio.
-
-    Fetches GC=F (Gold Futures) and BTC-USD closing prices from Yahoo Finance
-    separately, aligns both series to *date_range*, then divides gold by bitcoin
-    to produce the Gold/BTC ratio.
+    Fetches GC=F and BTC-USD separately from Yahoo Finance with a rate-limit
+    delay between each request. Both series are aligned to date_range before
+    dividing. Days where BTC price is zero or missing produce NaN in the output.
 
     Args:
-        start_date: ISO date string (``YYYY-MM-DD``) for the download start.
-        end_date: ISO date string (``YYYY-MM-DD``) for the download end.
-        date_range: Full pandas DatetimeIndex to re-index the result onto.
-        interval: yfinance interval string (e.g. ``"1d"`` for daily).
+        start_date: ISO date string (YYYY-MM-DD) for the download start.
+        end_date: ISO date string (YYYY-MM-DD) for the download end.
+        date_range: pandas DatetimeIndex to re-index the result onto.
+        interval: yfinance interval string (e.g. "1d" for daily).
 
     Returns:
-        Single-column DataFrame indexed by *date_range* with column
-        ``Gold/BTC Ratio``.  Dates where BTC price is zero or missing
-        are set to NaN.
+        A single-column DataFrame indexed by date_range with the column
+        "Gold/BTC Ratio". Dates where BTC price is zero or missing are NaN.
     """
     out = pd.DataFrame(index=date_range)
 
@@ -65,9 +55,13 @@ def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interv
     out[COLUMN_NAME] = gold_close.div(btc_close.replace(0, float("nan")))
     return out
 
+def main() -> None: # (Anthropic, 2026)
+    """Parse CLI arguments, collect the Gold/BTC ratio data, and save the result to CSV.
 
-def main() -> None:
-    """Parse CLI arguments, collect the Gold/BTC ratio data, and save the output CSV."""
+    Reads --start, --end, and --freq from the command line, calls collect(),
+    and writes the output to dataset_output/currency_gold_btc_ratio.csv.
+    Prints a confirmation message on success or an error message on failure.
+    """
     import argparse
     parser = argparse.ArgumentParser(description=OUTPUT_FILENAME)
     parser.add_argument("--start", default=None,

@@ -1,26 +1,12 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-Plot_Correlation_Matrix.py
---------------------------
-Generates a lower-triangle correlation-matrix heatmap for all numeric
-features in a dataset CSV file and opens it in an interactive window.
+The Plot_Correlation_Matrix.py script generates a lower-triangle correlation-matrix heatmap for 
+all numeric features in a dataset CSV file and opens it in an interactive window.
 
 The interactive matplotlib window includes a save button (floppy-disk
-icon) in the toolbar — click it to export the figure to any folder and
-format you choose.
-
-An optional --output-dir argument will also auto-save the figure to
-that directory as ``correlation_matrix.png`` before the window opens.
-
-Usage (standalone):
-    python Plot_Correlation_Matrix.py --dataset <path_to_csv>
-    python Plot_Correlation_Matrix.py --dataset <path_to_csv> --output-dir <path_to_folder>
-
-When launched from the Model Designer GUI the --dataset argument is
-populated automatically from the dropdown selection.
-
-References:
-    Anthropic. (2024). Claude (claude-sonnet) [Large language model].
-    https://www.anthropic.com
+icon) in the toolbar.
 """
 
 import argparse
@@ -32,12 +18,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-
-def main() -> None:
+def main() -> None: # (Anthropic, 2026)
     """Parse CLI arguments and render a correlation matrix heatmap.
 
-    Loads the CSV, computes pairwise correlations for numeric columns,
-    and displays the heatmap.  Auto-saves to *--output-dir* when provided.
+    Loads the CSV at --dataset, computes pairwise Pearson correlations
+    for all numeric columns, and displays a lower-triangle heatmap with
+    annotated coefficient values.  The figure is displayed interactively.
+    If --output-dir is supplied the figure is also auto-saved to that
+    directory as correlation_matrix.png before the window opens.
     """
     parser = argparse.ArgumentParser(
         description="Plot a correlation matrix heatmap for a dataset CSV."
@@ -71,7 +59,7 @@ def main() -> None:
         print("[ERROR] No numeric columns found — cannot compute correlation.", file=sys.stderr)
         sys.exit(1)
 
-    # ── Build plot ────────────────────────────────────────────────────
+    # Build plot
     plt.figure(figsize=(12, 10))
     sns.set(font_scale=0.8)
 
@@ -95,7 +83,7 @@ def main() -> None:
     plt.title("Correlation Matrix of Features", fontsize=16)
     plt.tight_layout()
 
-    # ── Optional auto-save ────────────────────────────────────────────
+    # Optional auto-save
     if args.output_dir:
         out_dir = Path(args.output_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -113,7 +101,6 @@ def main() -> None:
 
     plt.show()
     print("=== Plot Correlation Matrix complete ===")
-
 
 if __name__ == "__main__":
     main()

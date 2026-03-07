@@ -1,42 +1,18 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-Denoise_Data_Plot.py
---------------------
-Applies wavelet denoising to all numeric columns in a dataset CSV,
-saves the denoised result as ``<stem>_denoised.csv``, and opens an
-interactive time-series plot showing:
+The Denoise_Data_Plot.py script applies wavelet denoising to all numeric columns in a 
+dataset CSV, saves the denoised result and opens an interactive time-series plot showing 
+the original signal (blue, semi-transparent) with the Denoised signal (orange) and 
+the removed noise component (red, below each signal pair).
 
-  • Original signal (blue, semi-transparent)
-  • Denoised signal (orange)
-  • Removed noise component (red, below each signal pair)
-
-The interactive matplotlib window includes a save button (floppy-disk
-icon) in the toolbar — click it to export the figure to any folder and
-format you choose.
-
-An optional --output-dir argument will also auto-save:
-  • One PNG per column:               denoising_<column>.png
-  • One combined PNG for all columns: all_denoised_columns_with_noise.png
-
-Mathematical foundation:
+The formula for wavelet denoising is derived from Lopez et al. (2024):
     1. Multi-level decomposition:   x(t) = A_J + D_J + D_{J-1} + … + D_1
     2. Universal threshold:         λ = σ·√(2·log(N))·0.8
                                     σ = MAD(D_1) / 0.6745
     3. Soft thresholding:           T_λ(d) = sign(d)·max(|d|−λ, 0)
     4. Inverse wavelet transform + boundary correction.
-
-Usage (standalone):
-    python Denoise_Data_Plot.py --dataset <path_to_csv>
-    python Denoise_Data_Plot.py --dataset <path_to_csv> --output-dir <folder>
-    python Denoise_Data_Plot.py --dataset <path_to_csv> --wavelet db4 --level 3
-
-When launched from the Model Designer GUI the --dataset argument is
-populated automatically from the dropdown selection.
-
-References:
-    Gil, M., et al. (2024). Stock index forecasting based on multivariate
-    empirical mode decomposition and temporal convolutional networks.
-    Anthropic. (2024). Claude (claude-sonnet) [Large language model].
-    https://www.anthropic.com
 """
 
 import argparse
@@ -50,22 +26,24 @@ import matplotlib.dates as mdates
 import pywt
 from statsmodels.robust import mad
 
+# Time-series plot helpers
+def plot_time_series(series, title, ax, color="blue", alpha=0.8, linewidth=1.5): # (Anthropic, 2026)
+    """Plot a pandas Series as a line on a matplotlib Axes.
 
-# ── Time-series plot helpers (adapted from dataset.ipynb) ─────────────────────
-
-def plot_time_series(series, title, ax, color="blue", alpha=0.8, linewidth=1.5):
-    """Plot *series* as a line on *ax*.
+    Adds a line plot of ``series`` to ``ax``, sets grid lines, locks the
+    x-axis limits to the extent of the series index, and optionally sets
+    the axes title.
 
     Args:
-        series: pandas Series with a DatetimeIndex.
-        title: Axis title string, or None to skip.
-        ax: matplotlib Axes to plot onto.
+        series: A pandas Series with a DatetimeIndex to plot.
+        title: Title string for the axes, or ``None`` to leave it unset.
+        ax: The matplotlib Axes to draw on.
         color: Line colour (default ``'blue'``).
-        alpha: Line opacity (default 0.8).
-        linewidth: Line width in points (default 1.5).
+        alpha: Line opacity in [0, 1] (default ``0.8``).
+        linewidth: Line width in points (default ``1.5``).
 
     Returns:
-        The same *ax* object after plotting.
+        The ``ax`` object passed in, after the line has been added.
     """
     ax.plot(series.index, series, color=color, alpha=alpha, linewidth=linewidth)
     if title is not None:
@@ -75,14 +53,19 @@ def plot_time_series(series, title, ax, color="blue", alpha=0.8, linewidth=1.5):
     ax.set_xlim(series.index.min(), series.index.max())
     return ax
 
+def format_time_axis(ax, is_last=False): # (Anthropic, 2026)
+    """Apply date formatting to the x-axis of a matplotlib Axes.
 
-def format_time_axis(ax, is_last=False):
-    """Apply date formatting to the x-axis of *ax*.
+    When used in stacked subplot layouts, pass ``is_last=False`` for all
+    rows except the bottom one to suppress redundant x-tick labels.
+    The bottom row (``is_last=True``) receives year major ticks, quarterly
+    minor ticks, and rotated date labels.
 
     Args:
-        ax: matplotlib Axes whose x-axis to format.
-        is_last: If True, show full date labels and tick marks;
-            if False, hide x-tick labels (for stacked plots).
+        ax: The matplotlib Axes whose x-axis to format.
+        is_last: If ``True``, render full date labels, year major ticks,
+          and quarterly minor ticks. If ``False``, hide x-tick labels
+          (default ``False``).
     """
     if not is_last:
         ax.set_xlabel("")
@@ -96,27 +79,25 @@ def format_time_axis(ax, is_last=False):
         ax.xaxis.set_minor_locator(minor_locator)
         plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
 
+# Core denoising 
+def wavelet_denoising(df: pd.DataFrame, wavelet: str = "db4", level: int = 3) -> pd.DataFrame: # (Anthropic, 2026)
+    """Apply wavelet denoising to all numeric columns in a DataFrame.
 
-# ── Core denoising ────────────────────────────────────────────────────────────
-
-def wavelet_denoising(df: pd.DataFrame, wavelet: str = "db4", level: int = 3) -> pd.DataFrame:
-    """
-    Apply wavelet denoising to all numeric columns in *df*.
-
-    Steps (per column):
-      1. Multi-level decomposition:  x(t) = A_J + D_J + … + D_1
-      2. Universal threshold:        λ = σ·√(2·log(N))·0.8
-                                     σ = MAD(D_1) / 0.6745
-      3. Soft thresholding:          T_λ(d) = sign(d)·max(|d|−λ, 0)
-      4. Inverse transform + boundary correction.
+    Decomposes each numeric column using a multi-level discrete wavelet
+    transform, suppresses noise via universal soft thresholding on the detail
+    coefficients, then reconstructs the signal. The approximation coefficients
+    are left untouched. Non-numeric columns are copied through unchanged.
+    Boundary length mismatches after reconstruction are corrected by truncation
+    or edge-padding to match the original row count.
 
     Args:
-        df: Input DataFrame with a DatetimeIndex and numeric columns.
-        wavelet: PyWavelets wavelet name (default ``'db4'``).
-        level: Decomposition level (default 3).
+        df: Input DataFrame whose numeric columns are to be denoised.
+        wavelet: PyWavelets wavelet family name (default ``'db4'``).
+        level: Number of decomposition levels (default ``3``).
 
     Returns:
-        DataFrame of the same shape with denoised values.
+        A DataFrame of the same shape and index as ``df`` with denoised values
+        in every numeric column.
     """
     # (Gil et al., 2024), (Anthropic, 2024)
     df_denoised = df.copy()
@@ -149,22 +130,24 @@ def wavelet_denoising(df: pd.DataFrame, wavelet: str = "db4", level: int = 3) ->
 
     return df_denoised
 
+# Plotting helpers
+def plot_denoising_results(original_df: pd.DataFrame, denoised_df: pd.DataFrame, column_name: str): # (Anthropic, 2026)
+    """Create a two-panel comparison figure for a single column.
 
-# ── Plotting helpers ──────────────────────────────────────────────────────────
-
-def plot_denoising_results(original_df: pd.DataFrame, denoised_df: pd.DataFrame, column_name: str):
-    """Create a two-panel figure for *column_name* showing original vs denoised.
-
-    Top panel: original (blue) vs denoised (orange) signal.
-    Bottom panel: removed noise component (red).
+    The top panel overlays the original signal (blue, semi-transparent) with
+    the denoised signal (orange). The bottom panel shows the noise component
+    removed by denoising (original minus denoised, red). Both panels share
+    the same x-axis; only the bottom panel shows date labels.
 
     Args:
-        original_df: DataFrame containing the raw signal.
-        denoised_df: DataFrame containing the denoised signal.
-        column_name: Column to visualise.
+        original_df: DataFrame containing the raw signal column.
+        denoised_df: DataFrame containing the denoised signal column,
+          with the same index as ``original_df``.
+        column_name: Name of the column to visualise. Must exist in both
+          DataFrames.
 
     Returns:
-        The matplotlib Figure object.
+        The matplotlib Figure containing the two panels.
     """
     # (Anthropic, 2024)
     noise = original_df[column_name] - denoised_df[column_name]
@@ -208,14 +191,22 @@ def plot_denoising_results(original_df: pd.DataFrame, denoised_df: pd.DataFrame,
 
     return fig
 
+def plot_all_denoised_columns(original_df: pd.DataFrame, denoised_df: pd.DataFrame): # (Anthropic, 2026)
+    """Create a stacked figure showing denoising results for all numeric columns.
 
-def plot_all_denoised_columns(original_df: pd.DataFrame, denoised_df: pd.DataFrame):
-    """
-    Create a stacked figure with two rows per column:
-      Row 1: original (blue) vs denoised (orange) signal.
-      Row 2: noise component (red) with auto-scaled y-limits.
+    Produces two subplot rows per numeric column: the first overlays the
+    original (blue) and denoised (orange) signals; the second shows the
+    removed noise component (red) with y-limits clamped to ±3 standard
+    deviations of the noise. All subplots share a common x-axis; date labels
+    appear only on the bottom row.
 
-    Returns the matplotlib Figure.
+    Args:
+        original_df: DataFrame containing the raw signals.
+        denoised_df: DataFrame containing the denoised signals, with the same
+          index and numeric columns as ``original_df``.
+
+    Returns:
+        The matplotlib Figure containing all stacked panels.
     """
     # (Anthropic, 2024)
     numeric_cols = original_df.select_dtypes(include="number").columns.tolist()
@@ -283,10 +274,22 @@ def plot_all_denoised_columns(original_df: pd.DataFrame, denoised_df: pd.DataFra
 
     return fig
 
+# Main 
+def main() -> None: # (Anthropic, 2026)
+    """Wavelet-denoise a CSV and display interactive denoising comparison plots.
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+    Reads the dataset specified by the ``--dataset`` CLI argument, applies
+    :func:`wavelet_denoising` to all numeric columns, saves the denoised data
+    as ``<stem>_denoised.csv`` alongside the input, then opens an interactive
+    matplotlib window with per-column and combined denoising plots.
 
-def main() -> None:
+    If ``--output-dir`` is provided, one PNG per column and one combined PNG
+    are auto-saved to that directory at 300 dpi before the window opens.
+
+    Raises:
+        SystemExit: If the input file does not exist or cannot be parsed as
+          CSV, or if no numeric columns are found.
+    """
     parser = argparse.ArgumentParser(
         description="Wavelet-denoise a dataset CSV and display time-series comparison plots."
     )
@@ -336,11 +339,11 @@ def main() -> None:
         print("[ERROR] No numeric columns found.", file=sys.stderr)
         sys.exit(1)
 
-    # ── Apply denoising ───────────────────────────────────────────────
+    # Apply denoising 
     print("Applying wavelet denoising...")
     df_denoised = wavelet_denoising(df, wavelet=args.wavelet, level=args.level)
 
-    # ── Save denoised CSV ─────────────────────────────────────────────
+    # Save denoised CSV 
     out_csv = input_path.parent / (input_path.stem + "_denoised.csv")
     try:
         df_denoised.to_csv(out_csv)
@@ -348,7 +351,7 @@ def main() -> None:
     except Exception as exc:
         print(f"[WARNING] Could not save denoised CSV: {exc}", file=sys.stderr)
 
-    # ── Per-column comparison plots ───────────────────────────────────
+    # Per-column comparison plots
     print(f"\nGenerating per-column denoising plots ({len(numeric_cols)} column(s))...")
     out_dir = Path(args.output_dir) if args.output_dir else None
     if out_dir:
@@ -367,7 +370,7 @@ def main() -> None:
                 print(f"    [WARNING] Could not save: {exc}", file=sys.stderr)
         plt.close(fig)  # close individual before opening combined
 
-    # ── Combined all-columns plot ─────────────────────────────────────
+    # Combined all-columns plot
     print("\nGenerating combined plot for all columns...")
     fig_all = plot_all_denoised_columns(df, df_denoised)
 
@@ -386,7 +389,6 @@ def main() -> None:
 
     plt.show()
     print("\n=== Denoise Data Plot complete ===")
-
 
 if __name__ == "__main__":
     main()

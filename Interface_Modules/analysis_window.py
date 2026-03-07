@@ -1,11 +1,13 @@
-"""
-analysis_window.py
-------------------
-AnalysisWindow – modal window for running Dataset Analysis scripts.
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
 
-Lists all .py scripts in the ``Dataset_Analysis_Methods`` folder with
-checkboxes, a CSV dataset picker, Run/Stop buttons and an embedded
-console.  Scripts are executed sequentially as subprocesses.
+"""
+The analysis_window.py script defines the AnalysisWindow, a modal window for running Dataset Analysis scripts.
+
+It lists all the .py scripts in the Dataset_Analysis_Methods folder with 
+checkboxes, a CSV dataset picker, Run/Stop buttons and an embedded console output window.  
+
+Scripts are executed sequentially as subprocesses.
 """
 
 import collections
@@ -20,24 +22,19 @@ from tkinter import ttk, scrolledtext
 from .constants import DATASET_OUTPUT_DIR, ROOT_DIR
 from .utils import discover_scripts, discover_csvs
 
-
-class AnalysisWindow:
-    """
-    Toplevel window that lists all .py scripts in the
-    Dataset_Analysis_Methods folder with checkboxes, a Run button,
-    a Stop button, and an embedded console output area.
-    Runs selected scripts sequentially as subprocesses.
-    """
+class AnalysisWindow: # (Anthropic, 2026)
+    """Class definition for the AnalysisWindow script runner interface."""
 
     CONSOLE_BG = "#1e1e1e"
     CONSOLE_FG = "#d4d4d4"
 
-    def __init__(self, parent: tk.Widget, analysis_dir: str) -> None:
+    def __init__(self, parent: tk.Widget, analysis_dir: str) -> None: # (Anthropic, 2026)
         """Open the analysis-script runner window.
 
         Args:
-            parent: Parent widget that owns this ``Toplevel``.
-            analysis_dir: Absolute path to the folder containing analysis scripts.
+            parent: Parent widget that owns this Toplevel.
+            analysis_dir: Absolute path to the folder containing analysis
+                scripts.
         """
         self._dir = analysis_dir
         self._process: subprocess.Popen | None = None
@@ -55,16 +52,20 @@ class AnalysisWindow:
         self._build()
         self._poll_output()
 
-    # ── Build ──────────────────────────────────────────────────────────
+    # Build
+    def _build(self) -> None: # (Anthropic, 2026)
+        """Assemble all child widgets for the window.
 
-    def _build(self) -> None:
-        """Assemble all child widgets: CSV picker, checklist, buttons, and console."""
+        Constructs the CSV picker, scrollable script checklist, control
+        buttons, and console output area, then arranges them in a grid
+        layout that allows the console to expand with the window.
+        """
         outer = ttk.Frame(self._win, padding=10)
         outer.pack(fill="both", expand=True)
         outer.columnconfigure(0, weight=1)
         outer.rowconfigure(3, weight=1)  # console row expands
 
-        # ── Dataset CSV picker ───────────────────────────────────────
+        # Dataset CSV picker
         csv_frame = ttk.LabelFrame(
             outer,
             text="Dataset CSV (passed to scripts via --dataset)",
@@ -85,7 +86,7 @@ class AnalysisWindow:
         ).grid(row=0, column=2, padx=(4, 0))
         self._refresh_csvs()
 
-        # ── Scrollable checklist ───────────────────────────────────────
+        # Scrollable checklist 
         list_frame = ttk.LabelFrame(
             outer, text="Available Analysis Scripts", padding=(6, 4)
         )
@@ -109,7 +110,7 @@ class AnalysisWindow:
         self._canvas = canvas
         self._populate_checks()
 
-        # ── Buttons row ─────────────────────────────────────────────
+        # Buttons row
         btn_row = ttk.Frame(outer)
         btn_row.grid(row=2, column=0, sticky="ew", pady=(0, 6))
 
@@ -127,7 +128,7 @@ class AnalysisWindow:
         )
         self._run_btn.pack(side="right", padx=(0, 4))
 
-        # ── Console output ───────────────────────────────────────────
+        # Console output
         console_frame = ttk.LabelFrame(outer, text="Console Output", padding=(6, 4))
         console_frame.grid(row=3, column=0, sticky="nsew")
         console_frame.columnconfigure(0, weight=1)
@@ -149,10 +150,14 @@ class AnalysisWindow:
         self._console.tag_config("dim",   foreground="#6a9955")
         self._console.tag_config("head",  foreground="#dcdcaa")
 
-    # ── Script checklist ───────────────────────────────────────────────
+    # Script checklist
+    def _populate_checks(self) -> None: # (Anthropic, 2026)
+        """Rebuild the script checklist from the analysis directory.
 
-    def _populate_checks(self) -> None:
-        """Rebuild the checkbox list from the analysis directory."""
+        Destroys all existing checkboxes and recreates them from the scripts
+        currently returned by discover_scripts. Displays a placeholder label
+        if no scripts are found.
+        """
         for widget in self._inner.winfo_children():
             widget.destroy()
         self._check_vars.clear()
@@ -180,27 +185,37 @@ class AnalysisWindow:
         self._canvas.update_idletasks()
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))
 
-    def _refresh_csvs(self) -> None:
-        """Repopulate the CSV combobox from the dataset_output folder."""
+    def _refresh_csvs(self) -> None: # (Anthropic, 2026)
+        """Repopulate the dataset CSV combobox.
+
+        Reads available CSVs from DATASET_OUTPUT_DIR and updates the combobox
+        values. Resets the selection to the first available entry if the
+        current value is no longer present.
+        """
         csvs = discover_csvs(DATASET_OUTPUT_DIR)
         self._csv_combo["values"] = csvs
         if self._csv_var.get() not in csvs:
             self._csv_var.set(csvs[0] if csvs else "")
 
-    def _select_all(self) -> None:
-        """Tick all script checkboxes."""
+    def _select_all(self) -> None: # (Anthropic, 2026)
+        """Set all script checkboxes to checked."""
         for var in self._check_vars.values():
             var.set(True)
 
-    def _deselect_all(self) -> None:
-        """Clear all script checkboxes."""
+    def _deselect_all(self) -> None: # (Anthropic, 2026)
+        """Uncheck all script checkboxes."""
         for var in self._check_vars.values():
             var.set(False)
 
-    # ── Run logic ──────────────────────────────────────────────────────
+    # Run logic
+    def _on_run(self) -> None: # (Anthropic, 2026)
+        """Validate selections and enqueue checked scripts for execution.
 
-    def _on_run(self) -> None:
-        """Validate selections and enqueue checked scripts for sequential execution."""
+        Collects all ticked scripts in sorted order and verifies that a
+        dataset CSV has been chosen. Populates the run queue and starts
+        sequential execution via _start_next. Logs an error message if
+        either validation check fails.
+        """
         selected = sorted(name for name, var in self._check_vars.items() if var.get())
         if not selected:
             self._log("No scripts selected.\n", tag="error")
@@ -223,8 +238,14 @@ class AnalysisWindow:
         )
         self._start_next()
 
-    def _start_next(self) -> None:
-        """Pop and launch the next script in the run queue."""
+    def _start_next(self) -> None: # (Anthropic, 2026)
+        """Launch the next script from the run queue.
+
+        Pops the leading path from _run_queue and starts it in a daemon
+        thread via _run_script. Updates button states for the duration.
+        When the queue is empty, re-enables the Run button and logs
+        completion.
+        """
         if not self._run_queue:
             self._set_running(False)
             self._log("\n=== All analysis scripts finished ===\n", tag="head")
@@ -236,8 +257,17 @@ class AnalysisWindow:
             target=self._run_script, args=(script_path,), daemon=True
         ).start()
 
-    def _run_script(self, script_path: str) -> None:
-        """Execute *script_path* as a subprocess; stream stdout to the queue."""
+    def _run_script(self, script_path: str) -> None: # (Anthropic, 2026)
+        """Execute a script as a subprocess and stream its output.
+
+        Runs script_path with the current Python interpreter, forwarding
+        merged stdout/stderr to _output_queue line by line. Places the
+        process exit code as a summary line followed by a None sentinel
+        when done, signalling _poll_output to advance the queue.
+
+        Args:
+            script_path: Absolute path to the Python script to execute.
+        """
         dataset_path = getattr(self, "_selected_csv_path", "")
         extra_args = ["--dataset", dataset_path] if dataset_path else []
         try:
@@ -261,26 +291,36 @@ class AnalysisWindow:
             self._process = None
             self._output_queue.put(None)  # sentinel
 
-    def _on_stop(self) -> None:
-        """Terminate the running subprocess and clear the pending queue."""
+    def _on_stop(self) -> None: # (Anthropic, 2026)
+        """Terminate the active subprocess and discard any queued scripts.
+
+        Clears the run queue so no further scripts will be started, then
+        sends SIGTERM to the current subprocess if one is running.
+        """
         self._run_queue.clear()
         if self._process and self._process.poll() is None:
             self._process.terminate()
         self._log("\n[Process terminated by user \u2014 queue cleared]\n", tag="error")
 
-    def _set_running(self, is_running: bool) -> None:
-        """Toggle Run/Stop button states.
+    def _set_running(self, is_running: bool) -> None: # (Anthropic, 2026)
+        """Toggle the Run and Stop button states.
 
         Args:
-            is_running: When ``True`` the Run button is disabled and Stop enabled.
+            is_running: When True, disables the Run button and enables Stop.
+                When False, re-enables Run and disables Stop.
         """
         self._run_btn.config(state="disabled" if is_running else "normal")
         self._stop_btn.config(state="normal"   if is_running else "disabled")
 
-    # ── Output polling ─────────────────────────────────────────────────
+    # Output polling
+    def _poll_output(self) -> None: # (Anthropic, 2026)
+        """Drain the output queue and write pending lines to the console.
 
-    def _poll_output(self) -> None:
-        """Drain the output queue and flush lines to the console; reschedule every 50 ms."""
+        Called every 50 ms via Toplevel.after. Reads all items currently
+        available in _output_queue without blocking; a None sentinel triggers
+        _start_next to launch the following queued script. Reschedules
+        itself while the window exists.
+        """
         try:
             while True:
                 item = self._output_queue.get_nowait()
@@ -294,14 +334,14 @@ class AnalysisWindow:
             if self._win.winfo_exists():
                 self._win.after(50, self._poll_output)
 
-    # ── Console helpers ────────────────────────────────────────────────
-
-    def _log(self, text: str, tag: str = "") -> None:
-        """Append *text* to the embedded console, optionally coloured by *tag*.
+    # Console helpers
+    def _log(self, text: str, tag: str = "") -> None: # (Anthropic, 2026)
+        """Append text to the embedded console widget.
 
         Args:
             text: The string to append.
-            tag: Optional named tag for foreground colour.
+            tag: Optional tag name controlling foreground colour. Recognised
+                values are "info", "error", "dim", and "head".
         """
         self._console.config(state="normal")
         if tag:
@@ -311,8 +351,8 @@ class AnalysisWindow:
         self._console.see("end")
         self._console.config(state="disabled")
 
-    def _on_close(self) -> None:
-        """Terminate any running subprocess before closing."""
+    def _on_close(self) -> None: # (Anthropic, 2026)
+        """Terminate any active subprocess before destroying the window."""
         if self._process and self._process.poll() is None:
             self._process.terminate()
         self._win.destroy()

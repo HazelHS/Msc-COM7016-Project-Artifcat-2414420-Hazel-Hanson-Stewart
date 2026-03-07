@@ -1,19 +1,8 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-eval_utils.py
--------------
-Shared utilities for all Model Evaluation metric scripts.
-
-Provides a single entry-point function:
-
-    load_model_and_run_inference(model_path, dataset_path)
-
-which:
-  1. Loads a trained model checkpoint (.pt) and reads saved hyperparameters.
-  2. Detects the model type (xLSTM_TS or MEMD_TCN).
-  3. Rebuilds the correct model architecture from saved hyperparameters.
-  4. Loads and preprocesses the dataset CSV using the same pipeline as training.
-  5. Runs inference on the test split.
-  6. Returns inverse-scaled predictions and actuals for downstream metric scripts.
+The eval_utils.py is a shared utilities for all Model Evaluation metric scripts.
 """
 
 from __future__ import annotations
@@ -21,7 +10,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# ── Path setup ───────────────────────────────────────────────────────────────
+# Path setup
 _eval_dir    = Path(__file__).resolve().parent           # Evaluation_Metrics/
 _root        = _eval_dir.parent.parent                   # project root
 _training    = _root / "AI_Modules" / "Training_Methods"
@@ -31,7 +20,7 @@ for p in [str(_root), str(_training), str(_model_dsgns)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
-# ── Third-party / project imports ────────────────────────────────────────────
+# Third-party / project imports 
 import numpy as np
 import pandas as pd
 import torch
@@ -61,34 +50,38 @@ from Train_MEMD_TCN import (
     prepare_data_memd,
 )
 
-
-# =============================================================================
 # Public API
-# =============================================================================
-
 def load_model_and_run_inference(
     model_path: str | Path,
     dataset_path: str | Path,
-) -> dict:
-    """
-    Load a trained checkpoint, preprocess *dataset_path* with the same
-    pipeline used during training, and return inference results on the
-    test split.
+) -> dict: # (Anthropic, 2026)
+    """Load a trained checkpoint and run inference on the test split.
+
+    Reads saved hyperparameters from the checkpoint to detect the model
+    type (xLSTM_TS or MEMD_TCN), rebuilds the correct architecture, and
+    preprocesses *dataset_path* with the same pipeline used during
+    training before running inference on the held-out test split.
 
     Args:
-        model_path   : Absolute path to a .pt checkpoint file.
-        dataset_path : Absolute path to a .csv dataset file.
+        model_path: Absolute path to a .pt checkpoint file produced by a
+            training script.
+        dataset_path: Absolute path to a .csv dataset file compatible with
+            the checkpoint's training data.
 
     Returns:
-        dict with keys:
-            predictions  (np.ndarray, 1-D, inverse-scaled)
-            actuals      (np.ndarray, 1-D, inverse-scaled)
-            y_train      (np.ndarray, 1-D, unscaled, raw training targets)
-            model_name   (str)
-            dataset_name (str)
+        A dict with the following keys:
+            predictions:  1-D np.ndarray of inverse-scaled model predictions
+                on the test split.
+            actuals:      1-D np.ndarray of inverse-scaled ground-truth
+                values on the test split.
+            y_train:      1-D np.ndarray of unscaled raw training targets,
+                used as the naive-forecast denominator for MASE.
+            model_name:   str identifying the model type.
+            dataset_name: str filename of the dataset CSV.
 
     Raises:
-        RuntimeError  on unknown model type or data-preparation failure.
+        RuntimeError: If the checkpoint contains an unrecognised model type,
+            or if data preparation fails.
     """
     model_path   = Path(model_path)
     dataset_path = Path(dataset_path)
@@ -96,7 +89,7 @@ def load_model_and_run_inference(
     print(f"[eval_utils] Loading checkpoint : {model_path.name}")
     print(f"[eval_utils] Dataset            : {dataset_path.name}")
 
-    # ── 1. Load checkpoint ───────────────────────────────────────────────────
+    # 1. Load checkpoint 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ckpt   = torch.load(model_path, map_location=device)
     hp     = ckpt["hyperparameters"]
@@ -104,11 +97,11 @@ def load_model_and_run_inference(
 
     print(f"[eval_utils] Model type : {mtype}  |  device: {device}")
 
-    # ── 2. Load dataset ──────────────────────────────────────────────────────
+    # 2. Load dataset 
     df = pd.read_csv(dataset_path)
     print(f"[eval_utils] Dataset shape: {df.shape}")
 
-    # ── 3. Route to model-specific pipeline ─────────────────────────────────
+    # 3. Route to model-specific pipeline 
     if mtype == "xLSTM_TS":
         return _infer_xlstm(ckpt, hp, df, dataset_path, device)
     elif mtype == "MEMD_TCN":
@@ -116,25 +109,27 @@ def load_model_and_run_inference(
     else:
         raise RuntimeError(f"[eval_utils] Unknown model type in checkpoint: '{mtype}'")
 
-
-# =============================================================================
 # xLSTM_TS inference
-# =============================================================================
-
 def _infer_xlstm(ckpt: dict, hp: dict, df: pd.DataFrame,
-                 dataset_path: Path, device: torch.device) -> dict:
-    """Run the full xLSTM-TS data-preparation and inference pipeline.
+                 dataset_path: Path, device: torch.device) -> dict: # (Anthropic, 2026)
+    """Run the xLSTM-TS data-preparation and inference pipeline.
+
+    Reconstructs the xLSTM-TS model from *hp*, applies the same temporal
+    split and MinMax scaling used during training, builds sliding-window
+    sequences, and collects first-step predictions on the test split.
 
     Args:
-        ckpt: Loaded checkpoint dict from ``torch.load()``.
+        ckpt: Checkpoint dict returned by ``torch.load()``, containing
+            ``model_state_dict`` and ``hyperparameters``.
         hp: Hyperparameter dict extracted from ``ckpt['hyperparameters']``.
         df: Dataset DataFrame already loaded from *dataset_path*.
-        dataset_path: Path to the dataset CSV (used for ``dataset_name``).
-        device: Torch device on which to run inference.
+        dataset_path: Path to the dataset CSV; used only to populate
+            ``dataset_name`` in the returned dict.
+        device: Torch device on which to build and run the model.
 
     Returns:
-        dict with keys ``predictions``, ``actuals``, ``y_train``,
-        ``model_name``, and ``dataset_name``.
+        A dict with keys ``predictions``, ``actuals``, ``y_train``,
+        ``model_name`` (``"xLSTM_TS"``), and ``dataset_name``.
     """
 
     target_col      = hp.get("target_col", "BTC/USD")
@@ -144,7 +139,7 @@ def _infer_xlstm(ckpt: dict, hp: dict, df: pd.DataFrame,
     n_features      = int(hp.get("n_features", 1))
     batch_size      = int(hp.get("batch_size", 16))
 
-    # ── Guard: target column must exist ──────────────────────────────────────
+    # Guard: target column must exist
     if target_col not in df.columns:
         # Fall back to first numeric column
         numeric_cols = df.select_dtypes(include="number").columns.tolist()
@@ -153,7 +148,7 @@ def _infer_xlstm(ckpt: dict, hp: dict, df: pd.DataFrame,
         target_col = numeric_cols[0]
         print(f"[eval_utils] Target column not found; falling back to '{target_col}'")
 
-    # ── Feature columns (same logic as Train_xLSTM_TS.prepare_data) ──────────
+    # Feature columns (same logic as Train_xLSTM_TS.prepare_data)
     feature_columns = [
         c for c in df.columns
         if c not in (target_col, "Unnamed: 0")
@@ -167,10 +162,10 @@ def _infer_xlstm(ckpt: dict, hp: dict, df: pd.DataFrame,
 
     df = df.dropna(subset=feature_columns + [target_col]).copy()
 
-    # ── Temporal split ────────────────────────────────────────────────────────
+    # Temporal split 
     train_df, val_df, test_df = temporal_train_val_test_split(df)
 
-    # ── Scale ─────────────────────────────────────────────────────────────────
+    # Scale 
     scaled = fit_and_scale(train_df, val_df, test_df, feature_columns, target_col)
     target_scaler = scaled["target_scaler"]
     y_train_raw   = train_df[target_col].values  # unscaled, for MASE
@@ -178,7 +173,7 @@ def _infer_xlstm(ckpt: dict, hp: dict, df: pd.DataFrame,
     # Actual n_features from data (may differ from checkpoint if CSV differs)
     actual_n_features = len(feature_columns)
 
-    # ── Build sequences ───────────────────────────────────────────────────────
+    # Build sequences
     forecast_horizon = output_size
     X_test_seq, y_test_seq = make_sequences(
         scaled["X_test"], scaled["y_test"], sequence_length, forecast_horizon
@@ -188,7 +183,7 @@ def _infer_xlstm(ckpt: dict, hp: dict, df: pd.DataFrame,
     test_loader  = DataLoader(test_dataset, batch_size=batch_size,
                               shuffle=False, drop_last=False)
 
-    # ── Rebuild model ─────────────────────────────────────────────────────────
+    # Rebuild model 
     input_shape = (sequence_length, actual_n_features)
     model = xLSTM_TS_Model(
         input_shape=input_shape,
@@ -198,7 +193,7 @@ def _infer_xlstm(ckpt: dict, hp: dict, df: pd.DataFrame,
     model.load_state_dict(ckpt["model_state_dict"])
     model.eval()
 
-    # ── Inference ─────────────────────────────────────────────────────────────
+    # Inference
     all_preds, all_acts = [], []
     with torch.no_grad():
         for X_batch, y_batch in test_loader:
@@ -221,25 +216,32 @@ def _infer_xlstm(ckpt: dict, hp: dict, df: pd.DataFrame,
         "dataset_name": dataset_path.name,
     }
 
-
-# =============================================================================
 # MEMD_TCN inference
-# =============================================================================
-
 def _infer_memd(ckpt: dict, hp: dict, df: pd.DataFrame,
-                dataset_path: Path, device: torch.device) -> dict:
-    """Run the full MEMD-TCN data-preparation and inference pipeline.
+                dataset_path: Path, device: torch.device) -> dict: # (Anthropic, 2026)
+    """Run the MEMD-TCN data-preparation and inference pipeline.
+
+    Calls ``prepare_data_memd`` to perform MEMD decomposition and produce
+    train/val/test datasets, rebuilds the MEMD_TCN_Model from *hp*, and
+    collects per-component predictions that are summed via
+    ``model.reconstruct`` before inverse scaling.
 
     Args:
-        ckpt: Loaded checkpoint dict from ``torch.load()``.
+        ckpt: Checkpoint dict returned by ``torch.load()``, containing
+            ``model_state_dict`` and ``hyperparameters``.
         hp: Hyperparameter dict extracted from ``ckpt['hyperparameters']``.
         df: Dataset DataFrame already loaded from *dataset_path*.
-        dataset_path: Path to the dataset CSV (used for ``dataset_name``).
-        device: Torch device on which to run inference.
+        dataset_path: Path to the dataset CSV; used only to populate
+            ``dataset_name`` in the returned dict.
+        device: Torch device on which to build and run the model.
 
     Returns:
-        dict with keys ``predictions``, ``actuals``, ``y_train``,
-        ``model_name``, and ``dataset_name``.
+        A dict with keys ``predictions``, ``actuals``, ``y_train``,
+        ``model_name`` (``"MEMD_TCN"``), and ``dataset_name``.
+
+    Raises:
+        RuntimeError: If ``prepare_data_memd`` returns ``None``, indicating
+            the decomposition or data-prep stage failed.
     """
 
     target_col      = hp.get("target_col", "BTC/USD")
@@ -255,7 +257,7 @@ def _infer_memd(ckpt: dict, hp: dict, df: pd.DataFrame,
     sd_threshold    = float(hp.get("sd_threshold", 0.2))
     batch_size      = int(hp.get("batch_size", 16))
 
-    # ── Guard: target column must exist ──────────────────────────────────────
+    # Guard: target column must exist
     if target_col not in df.columns:
         numeric_cols = df.select_dtypes(include="number").columns.tolist()
         if not numeric_cols:
@@ -263,7 +265,7 @@ def _infer_memd(ckpt: dict, hp: dict, df: pd.DataFrame,
         target_col = numeric_cols[0]
         print(f"[eval_utils] Target column not found; falling back to '{target_col}'")
 
-    # ── Run MEMD data pipeline (mirrors prepare_data_memd) ───────────────────
+    # Run MEMD data pipeline (mirrors prepare_data_memd)
     print("[eval_utils] Running MEMD decomposition — this may take several minutes …")
     prepared = prepare_data_memd(
         df,
@@ -294,7 +296,7 @@ def _infer_memd(ckpt: dict, hp: dict, df: pd.DataFrame,
         batch_size=batch_size,
     )["test_loader"]
 
-    # ── Rebuild model ─────────────────────────────────────────────────────────
+    # Rebuild model 
     model = MEMD_TCN_Model(
         in_channels=actual_n_channels,
         kernel_size=kernel_size,
@@ -306,7 +308,7 @@ def _infer_memd(ckpt: dict, hp: dict, df: pd.DataFrame,
     model.load_state_dict(ckpt["model_state_dict"])
     model.eval()
 
-    # ── Inference ─────────────────────────────────────────────────────────────
+    # Inference
     all_preds, all_acts = [], []
     with torch.no_grad():
         for imf_seqs, target in test_loader:
@@ -334,24 +336,23 @@ def _infer_memd(ckpt: dict, hp: dict, df: pd.DataFrame,
         "dataset_name": dataset_path.name,
     }
 
-
-# =============================================================================
 # Shared metric helpers
-# =============================================================================
-
 def calculate_mase(y_true: np.ndarray,
                    y_pred: np.ndarray,
-                   y_train: np.ndarray | None) -> float:
+                   y_train: np.ndarray | None) -> float: # (Anthropic, 2026)
     """Compute the Mean Absolute Scaled Error (MASE).
 
-    MASE = MAE(model) / MAE(naive one-step persistence forecast on the training
-    set).  A value < 1 means the model outperforms the naive forecast.
+    Scales the model's MAE against the MAE of a naive one-step persistence
+    forecast computed on *y_train*.  A MASE < 1 indicates the model
+    outperforms the naive baseline.  When *y_train* is ``None`` or too
+    short, *y_true* is used as the fallback denominator series.
 
     Args:
         y_true: 1-D array of ground-truth test values.
-        y_pred: 1-D array of model predictions.
-        y_train: 1-D array of unscaled training targets used to compute the naive
-            benchmark.  Falls back to *y_true* when ``None``.
+        y_pred: 1-D array of model predictions, same length as *y_true*.
+        y_train: 1-D array of unscaled training targets used to compute
+            the naive persistence benchmark.  When ``None``, *y_true* is
+            used instead.
 
     Returns:
         MASE as a float.

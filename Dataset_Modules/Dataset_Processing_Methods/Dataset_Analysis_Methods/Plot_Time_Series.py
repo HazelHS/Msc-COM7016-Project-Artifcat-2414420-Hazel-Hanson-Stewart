@@ -1,27 +1,10 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-Plot_Time_Series.py
--------------------
-Plots a stacked time-series chart for every numeric column in a dataset
+The Plot_Time_Series.py script plots a stacked time-series chart for every numeric column in a dataset
 CSV file, sharing the same x-axis across all sub-plots. Year markers and
 quarterly minor ticks are applied to the bottom axis.
-
-Opens the chart in an interactive window. The interactive matplotlib
-window includes a save button (floppy-disk icon) in the toolbar — click
-it to export the figure to any folder and format you choose.
-
-An optional --output-dir argument will also auto-save the figure to
-that directory as ``time_series.png`` before the window opens.
-
-Usage (standalone):
-    python Plot_Time_Series.py --dataset <path_to_csv>
-    python Plot_Time_Series.py --dataset <path_to_csv> --output-dir <path_to_folder>
-
-When launched from the Model Designer GUI the --dataset argument is
-populated automatically from the dropdown selection.
-
-References:
-    Anthropic. (2024). Claude (claude-sonnet) [Large language model].
-    https://www.anthropic.com
 """
 
 import argparse
@@ -32,22 +15,23 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+#Reusable helpers
+def plot_time_series(series, title, ax, color="#1f77b4", alpha=0.8, linewidth=1.5): # (Anthropic, 2026)
+    """Plot a single pandas Series on ax as a time-series line.
 
-# ── Reusable helpers (adapted from dataset.ipynb) ─────────────────────────────
-
-def plot_time_series(series, title, ax, color="#1f77b4", alpha=0.8, linewidth=1.5):
-    """Plot a single pandas Series on *ax* as a time series line.
+    Draws the series against its index, sets the axis title, y-label,
+    gridlines, and x-limits.  The axes object is modified in place.
 
     Args:
-        series: pandas Series with a DatetimeIndex.
-        title: Axis title string.
-        ax: matplotlib Axes to plot onto.
-        color: Line colour hex string (default ``'#1f77b4'``).
-        alpha: Line opacity (default 0.8).
-        linewidth: Line width in points (default 1.5).
+        series: A pandas Series with a DatetimeIndex as its index.
+        title: Title string displayed above the axes.
+        ax: The matplotlib Axes to draw onto.
+        color: Line colour as a hex string.  Defaults to "#1f77b4".
+        alpha: Line opacity between 0 and 1.  Defaults to 0.8.
+        linewidth: Line width in points.  Defaults to 1.5.
 
     Returns:
-        The same *ax* object after plotting.
+        The ax object passed in, after plotting.
     """
     ax.plot(series.index, series, color=color, alpha=alpha, linewidth=linewidth)
     ax.set_title(title, fontsize=11)
@@ -56,14 +40,19 @@ def plot_time_series(series, title, ax, color="#1f77b4", alpha=0.8, linewidth=1.
     ax.set_xlim(series.index.min(), series.index.max())
     return ax
 
+def format_time_axis(ax, is_last=False): # (Anthropic, 2026)
+    """Apply date formatting to the x-axis of ax.
 
-def format_time_axis(ax, is_last=False):
-    """Apply date formatting to the x-axis of *ax*.
+    When is_last is False, x-tick labels are hidden so that only the
+    bottom axis in a stacked layout carries date labels.  When is_last
+    is True, annual major ticks with year labels and quarterly minor
+    ticks are applied, and labels are rotated 45 degrees.
 
     Args:
-        ax: matplotlib Axes whose x-axis to format.
-        is_last: If True, show full date labels and quarterly minor ticks;
-            if False, hide x-tick labels (for stacked plots).
+        ax: The matplotlib Axes whose x-axis to format.
+        is_last: If True, render full date labels with annual major and
+            quarterly minor ticks.  If False, suppress x-tick labels.
+            Defaults to False.
     """
     if not is_last:
         ax.set_xlabel("")
@@ -77,15 +66,15 @@ def format_time_axis(ax, is_last=False):
         ax.xaxis.set_minor_locator(minor_locator)
         plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
 
-
-# ── Main ──────────────────────────────────────────────────────────────────────
-
-def main() -> None:
+# Main
+def main() -> None: # (Anthropic, 2026)
     """Parse CLI arguments and plot a stacked time-series chart for each column.
 
-    Loads the specified CSV, selects all numeric columns, and renders a
-    vertically stacked line chart with a shared x-axis.  The figure is
-    shown interactively and optionally auto-saved to *--output-dir*.
+    Loads the CSV at --dataset, selects all numeric columns, and renders
+    a vertically stacked line chart with a shared x-axis.  The figure is
+    displayed interactively.  If --output-dir is supplied the figure is
+    also auto-saved to that directory as time_series.png before the
+    window opens.
     """
     parser = argparse.ArgumentParser(
         description="Plot stacked time-series charts for each column in a dataset CSV."
@@ -126,7 +115,7 @@ def main() -> None:
             file=sys.stderr,
         )
 
-    # ── Build plot ────────────────────────────────────────────────────
+    # Build plot 
     n_cols = len(numeric_df.columns)
     fig, axes = plt.subplots(n_cols, 1, figsize=(15, n_cols * 2.5), sharex=True)
 
@@ -148,7 +137,7 @@ def main() -> None:
     plt.subplots_adjust(hspace=0.3)
     plt.tight_layout(pad=1.2)
 
-    # ── Optional auto-save ────────────────────────────────────────────
+    # Optional auto-save
     if args.output_dir:
         out_dir = Path(args.output_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -166,7 +155,6 @@ def main() -> None:
 
     plt.show()
     print("=== Plot Time Series complete ===")
-
 
 if __name__ == "__main__":
     main()

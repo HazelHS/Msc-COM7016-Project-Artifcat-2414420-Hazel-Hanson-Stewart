@@ -1,46 +1,34 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-__dataset_utils.py
-------------------
-Shared utilities for Dataset_Collection feature scripts.
-This file starts with __ so it is excluded from the UI discover_scripts list.
+__dataset_utils.py is a shared utilities for Dataset_Collection feature scripts, using "__" so 
+it is excluded from the UI discover_scripts list.
 """
 
 import os
 from pathlib import Path
 import pandas as pd
 
-
-# ── Defaults ─────────────────────────────────────────────────────────────────
+# Defaults 
 DEFAULT_START_DATE = "2015-01-01"
 DEFAULT_END_DATE   = "2025-02-01"
 DEFAULT_FREQ       = "1d"
 
-
-# ── Custom exception ──────────────────────────────────────────────────────────
-
-class UnsupportedIntervalError(ValueError):
-    """
-    Raised by a dataset-collection script when the requested data frequency /
-    interval is not supported by the underlying data source.
-    """
-
-
-# ── yfinance timezone normalisation ───────────────────────────────────────────
-
-def strip_yf_tz(df: "pd.DataFrame") -> "pd.DataFrame":
+# Custom exception 
+class UnsupportedIntervalError(ValueError): # (Anthropic, 2026)
+    """Raised when a requested data frequency is not supported by the data source."""
+# yfinance timezone normalisation 
+def strip_yf_tz(df: "pd.DataFrame") -> "pd.DataFrame": # (Anthropic, 2026)
     """Remove timezone information from a yfinance download result.
 
-    yfinance returns UTC-aware timestamps for intraday intervals.  pandas
-    cannot align a timezone-aware Series/DataFrame against the timezone-naive
-    ``date_range`` produced by :func:`init_project_paths`, so every value
-    would become NaN.  Calling this helper immediately after every
-    ``yf.download()`` fixes the misalignment.
-
-    Safe to call on daily/coarser data too – it is a no-op when the index
-    is already timezone-naive.
+    Call this immediately after yf.download() to ensure the index can be
+    aligned against the timezone-naive DatetimeIndex produced by
+    init_project_paths(). Safe to call on daily or coarser data — it is a
+    no-op when the index is already timezone-naive or the DataFrame is empty.
 
     Args:
-        df: DataFrame returned by ``yf.download()``.
+        df: DataFrame returned by yf.download().
 
     Returns:
         The same DataFrame with a timezone-naive DatetimeIndex.
@@ -50,9 +38,7 @@ def strip_yf_tz(df: "pd.DataFrame") -> "pd.DataFrame":
         df.index = df.index.tz_localize(None)
     return df
 
-
-# ── Frequency / interval maps ─────────────────────────────────────────────────
-
+# Frequency / interval maps
 # Maps every accepted freq label → pandas date_range offset alias.
 FREQ_MAP: dict[str, str] = {
     "1m":  "1min",  "2m":  "2min",  "5m":  "5min",
@@ -77,50 +63,49 @@ BLOCKCHAIN_SUPPORTED_FREQS: frozenset[str] = frozenset({
     "1d", "5d", "1wk", "1mo", "3mo",
 })
 
-
-def get_yf_interval(freq: str) -> str:
-    """Return the yfinance-compatible interval string for *freq*.
+def get_yf_interval(freq: str) -> str: # (Anthropic, 2026)
+    """Return the yfinance-compatible interval string for freq.
 
     Args:
-        freq: One of the yfinance-style frequency labels (e.g. ``'1d'``,
-            ``'1h'``, ``'1wk'``).
+        freq: A yfinance-style frequency label (e.g. "1d", "1h", "1wk").
 
     Returns:
-        The matching yfinance interval string, defaulting to ``'1d'`` for
+        The matching yfinance interval string. Defaults to "1d" for
         unrecognised inputs.
     """
     return YF_INTERVAL_MAP.get(freq.lower(), "1d")
-
 
 def init_project_paths(
     start_date: str = DEFAULT_START_DATE,
     end_date: str   = DEFAULT_END_DATE,
     freq: str       = DEFAULT_FREQ,
-) -> dict:
-    """Resolve project directories, create missing folders, and return paths.
+) -> dict: # (Anthropic, 2026)
+    """Resolve project directories, create missing folders, and return a paths dict.
 
-    Creates ``dataset_output/`` and chart sub-directories if they do not
-    exist, then returns a dictionary of resolved paths and the common
-    date-range / empty DataFrame.
+    Creates dataset_output/ and chart sub-directories under the project root
+    if they do not already exist.
 
     Args:
-        start_date: ISO date string (``YYYY-MM-DD``) for the beginning of
-            the collection window.  Defaults to ``'2015-01-01'``.
-        end_date: ISO date string (``YYYY-MM-DD``) for the end of the
-            collection window.  Defaults to ``'2025-02-01'``.
-        freq: Frequency / interval – one of the yfinance-style labels:
-            ``'1m'``, ``'2m'``, ``'5m'``, ``'15m'``, ``'30m'``, ``'90m'``,
-            ``'1h'``, ``'1d'``, ``'5d'``, ``'1wk'``, ``'1mo'``, ``'3mo'``.
-            Defaults to ``'1d'``.
+        start_date: ISO date string (YYYY-MM-DD) for the start of the
+          collection window. Defaults to "2015-01-01".
+        end_date: ISO date string (YYYY-MM-DD) for the end of the collection
+          window. Defaults to "2025-02-01".
+        freq: Data frequency — one of the yfinance-style labels: "1m", "2m",
+          "5m", "15m", "30m", "90m", "1h", "1d", "5d", "1wk", "1mo",
+          "3mo". Defaults to "1d".
 
     Returns:
-        dict containing:
-            ``'project_root'``, ``'output_dir'``, ``'output_path'`` (Path),
-            ``'start_date'``, ``'end_date'``, ``'freq'`` (as supplied),
-            ``'pd_freq'`` (pandas offset alias, e.g. ``'D'``),
-            ``'yf_interval'`` (yfinance interval string, e.g. ``'1d'``),
-            ``'date_range'`` (pandas DatetimeIndex),
-            ``'df'`` (empty DataFrame indexed by date_range).
+        A dict with the following keys:
+          "project_root": Path to the workspace root.
+          "output_dir": Path to the dataset_output/ directory.
+          "output_path": Same as output_dir (append a filename to get a file path).
+          "start_date": The start_date string as supplied.
+          "end_date": The end_date string as supplied.
+          "freq": The freq string as supplied.
+          "pd_freq": pandas offset alias for the frequency (e.g. "D").
+          "yf_interval": yfinance interval string (e.g. "1d").
+          "date_range": pandas DatetimeIndex spanning start_date to end_date.
+          "df": Empty DataFrame indexed by date_range.
     """
     # Navigate from  …/Dataset_Modules/Dataset_Collection/ → project root
     root = Path(__file__).resolve().parent.parent.parent

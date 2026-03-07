@@ -1,27 +1,25 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-Check_Data_Outliers.py
-----------------------
-Detects and reports statistical outliers in a dataset CSV using the
+The Check_Data_Outliers.py script detects and reports statistical outliers in a dataset CSV using the
 Inter-Quartile Range (IQR) method.
-
-A value is classed as an outlier when it falls outside the fences:
-    lower fence = Q1 - 1.5 * IQR
-    upper fence = Q3 + 1.5 * IQR
-
-Usage (standalone):
-    python Check_Data_Outliers.py --dataset <path_to_csv>
-
-When launched from the Model Designer GUI the --dataset argument is
-populated automatically from the dropdown selection.
 """
 
 import argparse
 import sys
 import pandas as pd
 
+def main() -> None: # (Anthropic, 2026)
+    """Parse CLI arguments and detect IQR-based outliers in the CSV.
 
-def main() -> None:
-    """Parse CLI arguments and detect IQR-based outliers in the CSV."""
+    Loads the CSV at --dataset and prints two sections to stdout: a
+    per-column summary table showing Q1, Q3, IQR, lower and upper fences,
+    and counts of values below and above each fence; followed by the
+    first 20 outlier rows for each column that contains at least one
+    outlier.  Outliers are defined as values outside Q1 - 1.5*IQR or
+    Q3 + 1.5*IQR.
+    """
     parser = argparse.ArgumentParser(description="Detect outliers via IQR method.")
     parser.add_argument("--dataset", required=True, help="Absolute path to the input CSV file.")
     args = parser.parse_args()
@@ -79,7 +77,7 @@ def main() -> None:
     print(summary.to_string())
     print(f"\nTotal outlier cells detected: {total_outliers}")
 
-    # ── Per-column listing for columns that have outliers ─────────────
+    # Per-column listing for columns that have outliers
     flagged = summary[summary["Total outliers"] > 0].index.tolist()
     if flagged:
         print("\n" + "=" * 60)
@@ -99,7 +97,6 @@ def main() -> None:
         print("\nNo outliers detected in any numeric column.")
 
     print("\n=== Check Data Outliers complete ===")
-
 
 if __name__ == "__main__":
     main()

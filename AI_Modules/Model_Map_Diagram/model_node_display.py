@@ -1,18 +1,11 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-model_node_display.py
----------------------
-Generates a visual architecture diagram for any model script selected in the
-"AI Model Designs" pipeline stage.
-
-Usage (called automatically by the Model Designer GUI):
-    python model_node_display.py <path_to_model_script.py>
-
-Steps:
-  1. Dynamically imports the given model .py file.
-  2. Auto-detects the primary nn.Module class (prefers names containing "Model").
-  3. Runs a forward pass with a dummy input to trace layer execution order.
-  4. Renders a Graphviz colour-coded architecture diagram + Pillow legend strip.
-  5. Saves the result to AI_Modules/Model_Map_Diagram/Model_Diagram_output/.
+This script model_node_display.py generates a visual architecture diagram 
+for any model script selected in the "AI Model Designs" pipeline stage. 
+Designed to work with the xLSTM-TS and MEMD-TCN models but should be robust to a 
+wide range of PyTorch nn.Module architectures.
 """
 
 import sys
@@ -25,7 +18,7 @@ import torch
 import torch.nn as nn
 from graphviz import Digraph
 
-# ── Resolve the model script path from argv ───────────────────────────────────
+# Resolve the model script path from argv
 if len(sys.argv) < 2:
     print("[ERROR] Usage: python model_node_display.py <model_script.py>",
           file=sys.stderr)
@@ -40,13 +33,13 @@ model_name = model_script_path.stem
 print(f"Generating diagram for: {model_name}")
 print(f"  Source: {model_script_path}")
 
-# ── Fixed project paths ───────────────────────────────────────────────────────
+# Fixed project paths
 project_root = Path(__file__).resolve().parent.parent.parent
 csv_path     = project_root / "Dataset_Modules" / "dataset_output" / "2015-2025_dataset_denoised.csv"
 charts_path  = project_root / "AI_Modules" / "Model_Map_Diagram" / "Model_Diagram_output"
 charts_path.mkdir(parents=True, exist_ok=True)
 
-# ── Dynamically import the model module ───────────────────────────────────────
+# Dynamically import the model module
 model_dir = str(model_script_path.parent)
 if model_dir not in sys.path:
     sys.path.insert(0, model_dir)
@@ -61,12 +54,12 @@ except Exception as exc:
     print(f"[ERROR] Failed to import {model_script_path.name}: {exc}", file=sys.stderr)
     sys.exit(1)
 
-# ── Find the primary model class ──────────────────────────────────────────────
-def find_model_class(mod) -> type | None:
-    """Return the primary nn.Module subclass defined in *mod*.
+# Find the primary model class
+def find_model_class(mod) -> type | None: # (Anthropic, 2026)
+    """Find the primary nn.Module subclass defined in mod.
 
-    Prefers classes whose name contains 'Model'.  Falls back to the last
-    nn.Module subclass found in the file.
+    Prefers classes whose name contains 'Model'. If none match, returns
+    the last nn.Module subclass found whose __module__ matches the file.
 
     Args:
         mod: Dynamically imported Python module object.
@@ -93,7 +86,7 @@ if model_class is None:
 
 print(f"  Found model class: {model_class.__name__}")
 
-# ── Build dummy input dimensions ─────────────────────────────────────────────
+# Build dummy input dimensions
 if csv_path.exists():
     df = pd.read_csv(csv_path, index_col=0, parse_dates=True)
     n_features = df.shape[1]
@@ -106,15 +99,15 @@ sequence_length = 10
 input_shape     = (sequence_length, n_features)
 device          = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# ── Inspect constructor ───────────────────────────────────────────────────────
-def _get_init_params(cls) -> list[str]:
-    """Return constructor parameter names for *cls*, excluding *self*.
+# Inspect constructor
+def _get_init_params(cls) -> list[str]: # (Anthropic, 2026)
+    """Return constructor parameter names for cls, excluding self.
 
     Args:
-        cls: Class to inspect via :func:`inspect.signature`.
+        cls: Class whose __init__ signature will be inspected.
 
     Returns:
-        List of parameter name strings, or empty list on inspection failure.
+        A list of parameter name strings, or an empty list if inspection fails.
     """
     try:
         sig = inspect.signature(cls.__init__)
@@ -122,8 +115,8 @@ def _get_init_params(cls) -> list[str]:
     except Exception:
         return []
 
-def _try_instantiate(cls, candidates: list[dict], device) -> nn.Module | None:
-    """Try each kwarg dict in *candidates* in order; return the first success.
+def _try_instantiate(cls, candidates: list[dict], device) -> nn.Module | None: # (Anthropic, 2026)
+    """Try each kwarg dict in candidates in order and return the first successful instantiation.
 
     Args:
         cls: The nn.Module subclass to instantiate.
@@ -131,7 +124,7 @@ def _try_instantiate(cls, candidates: list[dict], device) -> nn.Module | None:
         device: Torch device to move the model to on success.
 
     Returns:
-        An instantiated model moved to *device*, or None if all attempts fail.
+        An instantiated model moved to device, or None if all attempts fail.
     """
     accepted = set(_get_init_params(cls))
     for kwargs in candidates:
@@ -165,7 +158,7 @@ if model is None:
 model.eval()
 print(f"  Instantiated {model_class.__name__} on {device}")
 
-# ── Colour map ───────────────────────────────────────────────────────────────
+# Colour map
 # Keys are matched as substrings (case-insensitive) against module class names.
 # Order matters — first match wins.
 COLOR_MAP: dict[str, str] = {
@@ -206,8 +199,8 @@ LEGEND_LABELS: dict[str, str] = {
     "default":            "Other",
 }
 
-def get_color_key(cls_name: str) -> str:
-    """Return the COLOR_MAP key whose label is a substring of cls_name."""
+def get_color_key(cls_name: str) -> str: # (Anthropic, 2026)
+    """Return the COLOR_MAP key whose label is a case-insensitive substring of cls_name."""
     for key in COLOR_MAP:
         if key == "default":
             continue
@@ -215,54 +208,51 @@ def get_color_key(cls_name: str) -> str:
             return key
     return "default"
 
-def get_color(cls_name: str) -> str:
-    """Return the hex fill colour for *cls_name* from COLOR_MAP.
+def get_color(cls_name: str) -> str: # (Anthropic, 2026)
+    """Return the hex fill colour for cls_name from COLOR_MAP.
 
     Args:
         cls_name: PyTorch module class name string.
 
     Returns:
-        Hex colour string (e.g. ``'#2E6DA4'``).
+        A hex colour string such as '#2E6DA4'.
     """
     return COLOR_MAP[get_color_key(cls_name)]
 
-# ── LAYER-LEVEL forward-hook tracing ─────────────────────────────────────────
-# Registers hooks on EVERY submodule (not just top-level) that has no
-# nn.Module children of its own — i.e. true leaf layers.
-# This captures Conv1d, Linear, ReLU, Dropout etc. inside ResidualBlock.
-
+# Layer-Level forward-hook tracing Registers hooks on every submodule not just top-level, that has no nn.Module children of its own. i.e. true leaf layers, this captures Conv1d, Linear, ReLU, Dropout etc. inside ResidualBlock.
 # Modules to skip — pure containers add noise without meaning in the diagram
 SKIP_TYPES = (nn.Sequential, nn.ModuleList, nn.ModuleDict)
 
 # Maximum nesting depth to register hooks (avoids exploding graphs)
 MAX_DEPTH = 6
 
-def _is_leaf_layer(mod: nn.Module) -> bool:
-    """True if module has no nn.Module children (real computational leaf)."""
+def _is_leaf_layer(mod: nn.Module) -> bool: # (Anthropic, 2026)
+    """Return True if mod has no nn.Module children (i.e. is a computational leaf)."""
     return not any(True for _ in mod.children())
 
-def _module_depth(name: str) -> int:
-    """Return the nesting depth of a named module path.
+def _module_depth(name: str) -> int: # (Anthropic, 2026)
+    """Return the nesting depth of a dot-separated module path.
 
     Args:
-        name: Dot-separated module name (e.g. 'network.0.conv1').
+        name: Dot-separated module name, e.g. 'network.0.conv1'.
 
     Returns:
-        Number of path segments (0 for empty string).
+        The number of path segments, or 0 for an empty string.
     """
     return len(name.split(".")) if name else 0
 
 executed: list[tuple[str, str, object]] = []  # (full_name, class_name, output_shape)
 
-def make_hook(full_name: str):
-    """Create a forward hook that records output shape for *full_name*.
+def make_hook(full_name: str): # (Anthropic, 2026)
+    """Create a forward hook that records the output shape of a named module.
 
     Args:
         full_name: Dot-separated qualified name of the module being hooked.
 
     Returns:
-        A forward-hook callable that appends
-        ``(full_name, class_name, shape)`` to the outer ``executed`` list.
+        A forward-hook callable that appends a tuple
+        (full_name, class_name, shape) to the outer executed list after
+        each forward pass through the hooked module.
     """
     def hook(mod, inp, out):
         try:
@@ -284,7 +274,7 @@ for full_name, mod in model.named_modules():
     if _is_leaf_layer(mod):
         hooks.append(mod.register_forward_hook(make_hook(full_name)))
 
-# ── Dummy tensors ─────────────────────────────────────────────────────────────
+# Dummy tensors
 dummy_BTC  = torch.randn(1, sequence_length, n_features, device=device)   # [B, T, C] xLSTM
 dummy_BCT  = torch.randn(1, 5, sequence_length, device=device)             # [B, C, T] TCN
 
@@ -317,19 +307,15 @@ for h in hooks:
 if not trace_success or not executed:
     print("[WARN] No layers traced. Diagram will only show input→output.")
 
-# ── De-duplicate consecutive identical-class layers ───────────────────────────
-# When ModuleList repeats the same block structure many times (e.g. 13 TCN
-# slots all with the same layers), collapse consecutive runs to keep the
-# diagram readable.  Keeps first occurrence of each (class, parent-block) group.
-
-def _parent(name: str) -> str:
-    """Return the parent module path for a dot-separated *name*.
+# De-duplicate consecutive identical-class layers when ModuleList repeats the same block structure many times, collapse consecutive runs to keep the diagram readable.  Keeps first occurrence of each (class, parent-block) group.
+def _parent(name: str) -> str: # (Anthropic, 2026)
+    """Return the parent module path for a dot-separated name.
 
     Args:
         name: Dot-separated qualified module name.
 
     Returns:
-        Everything before the final dot, or empty string for top-level names.
+        Everything before the final dot, or an empty string for top-level names.
     """
     parts = name.split(".")
     return ".".join(parts[:-1]) if len(parts) > 1 else ""
@@ -346,7 +332,7 @@ for name, cls, shape in executed:
 
 print(f"  After dedup: {len(deduplicated)} nodes")
 
-# ── Graphviz diagram ──────────────────────────────────────────────────────────
+# Graphviz diagram
 g = Digraph(f"{model_name}_layers", format="png")
 g.attr(rankdir="LR", splines="ortho", nodesep="0.12", ranksep="0.25",
        size="36,6", dpi="150", bgcolor="white")
@@ -358,7 +344,7 @@ g.node("__input__", label="", shape="box", style="filled",
        width="0.35", height="0.9", fixedsize="true",
        tooltip="Input")
 
-# Track which color keys actually appear — for legend filtering
+# Track which color keys actually appear for legend filtering
 used_color_keys: set[str] = {"InputLayer", "Output"}
 
 prev = "__input__"
@@ -398,7 +384,7 @@ chart_base = charts_path / f"{model_name}_chart_modules_colored"
 g.render(str(chart_base), cleanup=True)
 print(f"  Graphviz diagram saved: {chart_base}.png")
 
-# ── Pillow legend strip — only show colours that appear in the diagram ─────────
+# Pillow legend strip only show colours that appear in the diagram.
 SQUARE_SIZE    = 36
 TEXT_PADDING   = 10
 ITEM_H_GAP     = 50
@@ -412,7 +398,7 @@ try:
 except Exception:
     font = ImageFont.load_default()
 
-# Build legend items — only keys that were actually encountered
+# Build legend items only keys that were actually encountered.
 legend_items: list[tuple[str, str]] = []
 for key in COLOR_MAP:
     if key == "default":
@@ -420,16 +406,16 @@ for key in COLOR_MAP:
     if key in used_color_keys:
         legend_items.append((key, LEGEND_LABELS.get(key, key)))
 
-def text_width(draw, text, fnt):
-    """Return the pixel width of *text* rendered with *fnt*.
+def text_width(draw, text, fnt): # (Anthropic, 2026)
+    """Return the pixel width of text rendered with fnt.
 
     Args:
-        draw: A :class:`PIL.ImageDraw.ImageDraw` instance.
+        draw: A PIL.ImageDraw.ImageDraw instance used to measure text bounds.
         text: The string to measure.
         fnt: A PIL font object.
 
     Returns:
-        Integer pixel width of the bounding box.
+        Integer pixel width of the rendered text bounding box.
     """
     bbox = draw.textbbox((0, 0), text, font=fnt)
     return bbox[2] - bbox[0]
@@ -445,7 +431,7 @@ item_pixel_widths = [
     for _, lbl in legend_items
 ]
 
-# Compute per-column max widths for alignment
+# Compute per-column max widths for alignment.
 col_widths = []
 for col in range(ITEMS_PER_ROW):
     col_ws = [
@@ -458,7 +444,7 @@ for col in range(ITEMS_PER_ROW):
 legend_content_w = sum(col_widths) + ITEM_H_GAP * max(0, ITEMS_PER_ROW - 1)
 legend_content_h = len(rows) * (SQUARE_SIZE + ITEM_V_GAP) - ITEM_V_GAP
 
-# ── Load diagram and combine ──────────────────────────────────────────────────
+# Load diagram and combine
 main_img = Image.open(str(chart_base.with_suffix(".png"))).convert("RGBA")
 
 legend_strip_w = max(main_img.width,  legend_content_w + 2 * LEGEND_PADDING)

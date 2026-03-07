@@ -1,13 +1,12 @@
-"""
-process_dataset_window.py
--------------------------
-ProcessDatasetWindow – combined run window for the Dataset Processing
-Method pipeline stage.
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
 
-Provides a CSV dataset picker, a scrollable script checklist, Run/Stop
-buttons and an embedded console in a single self-contained Toplevel.
-Selections and the chosen CSV are persisted back into the stage dict
-when the window is closed.
+"""
+process_dataset_window.py is a Toplevel window for the Dataset Processing Method pipeline stage. 
+It allows users to select a dataset CSV and choose which processing scripts to run on it. 
+The window manages subprocess execution of the selected scripts, streaming their output to an 
+embedded console widget in real time. Users can stop the active script and clear the queue of pending scripts. 
+Selections are persisted back to the main stage dict when the window is closed.
 """
 
 import collections
@@ -22,26 +21,20 @@ from tkinter import ttk, scrolledtext
 from .constants import DATASET_OUTPUT_DIR, ROOT_DIR
 from .utils import discover_scripts, discover_csvs
 
-
-class ProcessDatasetWindow:
-    """
-    Toplevel window for the 'Dataset Processing Method' pipeline stage.
-    Combines a CSV dataset picker, a scrollable script checklist, Run/Stop
-    buttons and an embedded console in a single self-contained window.
-    Selections and the chosen CSV are persisted back into the stage dict
-    when the window is closed.
-    """
+class ProcessDatasetWindow: # (Anthropic, 2026)
+    """Toplevel window for the Dataset Processing Method pipeline stage."""
 
     CONSOLE_BG = "#1e1e1e"
     CONSOLE_FG = "#d4d4d4"
 
-    def __init__(self, parent: tk.Widget, stage: dict) -> None:
+    def __init__(self, parent: tk.Widget, stage: dict) -> None: # (Anthropic, 2026)
         """Open the dataset-processing runner window.
 
         Args:
-            parent: Parent widget that owns this ``Toplevel``.
-            stage: Mutable stage dict from ``MainWindow._stages``; used to
-                persist script selections and chosen CSV on close.
+            parent: Parent widget that owns this Toplevel.
+            stage: Mutable stage dict from MainWindow._stages. Script
+                selections and the chosen CSV are written back into this
+                dict when the window is closed.
         """
         self._stage = stage
         self._dir   = stage["dir"]
@@ -61,16 +54,15 @@ class ProcessDatasetWindow:
         self._build()
         self._poll_output()
 
-    # ── Build ──────────────────────────────────────────────────────────
-
-    def _build(self) -> None:
-        """Assemble all child widgets: CSV picker, checklist, buttons, and console."""
+    # Build 
+    def _build(self) -> None: # (Anthropic, 2026)
+        """Assemble all child widgets: CSV picker, script checklist, action buttons, and console."""
         outer = ttk.Frame(self._win, padding=10)
         outer.pack(fill="both", expand=True)
         outer.columnconfigure(0, weight=1)
         outer.rowconfigure(3, weight=1)  # console row expands
 
-        # ── Dataset CSV picker ───────────────────────────────────────
+        # Dataset CSV picker
         csv_frame = ttk.LabelFrame(
             outer,
             text="Dataset CSV (passed to scripts via --dataset)",
@@ -91,7 +83,7 @@ class ProcessDatasetWindow:
         ).grid(row=0, column=2, padx=(4, 0))
         self._refresh_csvs()
 
-        # ── Scrollable checklist ──────────────────────────────────────
+        # Scrollable checklist
         list_frame = ttk.LabelFrame(
             outer, text="Available Processing Scripts", padding=(6, 4)
         )
@@ -114,7 +106,7 @@ class ProcessDatasetWindow:
         self._canvas = canvas
         self._populate_checks()
 
-        # ── Buttons row ──────────────────────────────────────────────
+        # Buttons row
         btn_row = ttk.Frame(outer)
         btn_row.grid(row=2, column=0, sticky="ew", pady=(0, 6))
 
@@ -132,7 +124,7 @@ class ProcessDatasetWindow:
         )
         self._run_btn.pack(side="right", padx=(0, 4))
 
-        # ── Console output ───────────────────────────────────────────
+        # Console output
         console_frame = ttk.LabelFrame(outer, text="Console Output", padding=(6, 4))
         console_frame.grid(row=3, column=0, sticky="nsew")
         console_frame.columnconfigure(0, weight=1)
@@ -154,10 +146,14 @@ class ProcessDatasetWindow:
         self._console.tag_config("dim",   foreground="#6a9955")
         self._console.tag_config("head",  foreground="#dcdcaa")
 
-    # ── Script checklist ───────────────────────────────────────────────
+    # Script checklist
+    def _populate_checks(self) -> None: # (Anthropic, 2026)
+        """Rebuild the script checklist from the processing stage's directory.
 
-    def _populate_checks(self) -> None:
-        """Rebuild the checkbox list from the processing directory."""
+        Clears any existing checkboxes, scans the directory for available
+        Python scripts, and renders a new checkbox for each one. Previously
+        selected scripts are re-checked automatically.
+        """
         for widget in self._inner.winfo_children():
             widget.destroy()
         self._check_vars.clear()
@@ -183,27 +179,31 @@ class ProcessDatasetWindow:
         self._canvas.update_idletasks()
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))
 
-    def _refresh_csvs(self) -> None:
-        """Repopulate the CSV combobox from the dataset_output folder."""
+    def _refresh_csvs(self) -> None: # (Anthropic, 2026)
+        """Repopulate the CSV combobox by scanning the dataset_output folder."""
         csvs = discover_csvs(DATASET_OUTPUT_DIR)
         self._csv_combo["values"] = csvs
         if self._csv_var.get() not in csvs:
             self._csv_var.set(csvs[0] if csvs else "")
 
-    def _select_all(self) -> None:
-        """Tick all script checkboxes."""
+    def _select_all(self) -> None: # (Anthropic, 2026)
+        """Tick every script checkbox in the checklist."""
         for var in self._check_vars.values():
             var.set(True)
 
-    def _deselect_all(self) -> None:
-        """Clear all script checkboxes."""
+    def _deselect_all(self) -> None: # (Anthropic, 2026)
+        """Untick every script checkbox in the checklist."""
         for var in self._check_vars.values():
             var.set(False)
 
-    # ── Run logic ──────────────────────────────────────────────────────
+    # Run logic 
+    def _on_run(self) -> None: # (Anthropic, 2026)
+        """Validate selections and enqueue all checked scripts for sequential execution.
 
-    def _on_run(self) -> None:
-        """Validate selections and enqueue checked scripts for sequential execution."""
+        Logs an error and aborts if no scripts are checked or no dataset CSV
+        is selected. Otherwise builds the run queue and launches the first script.
+        The chosen CSV path is forwarded to each script as ``--dataset``.
+        """
         selected = sorted(name for name, var in self._check_vars.items() if var.get())
         if not selected:
             self._log("No scripts selected.\n", tag="error")
@@ -226,8 +226,12 @@ class ProcessDatasetWindow:
         )
         self._start_next()
 
-    def _start_next(self) -> None:
-        """Pop and launch the next script in the run queue."""
+    def _start_next(self) -> None: # (Anthropic, 2026)
+        """Pop and launch the next script from the run queue.
+
+        Transitions to idle and logs a completion message when the queue
+        is empty.
+        """
         if not self._run_queue:
             self._set_running(False)
             self._log("\n=== All processing scripts finished ===\n", tag="head")
@@ -239,8 +243,17 @@ class ProcessDatasetWindow:
             target=self._run_script, args=(script_path,), daemon=True
         ).start()
 
-    def _run_script(self, script_path: str) -> None:
-        """Execute *script_path* as a subprocess; stream stdout to the queue."""
+    def _run_script(self, script_path: str) -> None: # (Anthropic, 2026)
+        """Execute a Python script as a subprocess and stream its output.
+
+        Launches script_path with the current interpreter, combining stdout
+        and stderr into a single stream forwarded line-by-line to the output
+        queue. Passes the selected dataset CSV path via ``--dataset``. Pushes
+        a None sentinel on completion so the poll loop can advance the queue.
+
+        Args:
+            script_path: Absolute path to the Python script to execute.
+        """
         dataset_path = getattr(self, "_selected_csv_path", "")
         extra_args = ["--dataset", dataset_path] if dataset_path else []
         try:
@@ -264,26 +277,31 @@ class ProcessDatasetWindow:
             self._process = None
             self._output_queue.put(None)  # sentinel
 
-    def _on_stop(self) -> None:
-        """Terminate the running subprocess and clear the pending queue."""
+    def _on_stop(self) -> None: # (Anthropic, 2026)
+        """Terminate the active subprocess and discard all queued scripts."""
         self._run_queue.clear()
         if self._process and self._process.poll() is None:
             self._process.terminate()
         self._log("\n[Process terminated by user - queue cleared]\n", tag="error")
 
-    def _set_running(self, is_running: bool) -> None:
-        """Toggle Run/Stop button states.
+    def _set_running(self, is_running: bool) -> None: # (Anthropic, 2026)
+        """Toggle the Run and Stop buttons between running and idle states.
 
         Args:
-            is_running: When ``True`` the Run button is disabled and Stop enabled.
+            is_running: If True, disable the Run button and enable Stop.
+                If False, re-enable Run and disable Stop.
         """
         self._run_btn.config(state="disabled" if is_running else "normal")
         self._stop_btn.config(state="normal"   if is_running else "disabled")
 
-    # ── Output polling ───────────────────────────────────────────────
+    # Output polling 
+    def _poll_output(self) -> None: # (Anthropic, 2026)
+        """Drain pending lines from the output queue and write them to the console.
 
-    def _poll_output(self) -> None:
-        """Drain the output queue and flush lines to the console; reschedule every 50 ms."""
+        Reschedules itself every 50 ms via tk.after for the lifetime of the
+        window. A None sentinel emitted by a finished script triggers
+        _start_next to launch the next queued script or return to idle.
+        """
         try:
             while True:
                 item = self._output_queue.get_nowait()
@@ -297,14 +315,15 @@ class ProcessDatasetWindow:
             if self._win.winfo_exists():
                 self._win.after(50, self._poll_output)
 
-    # ── Console helpers ──────────────────────────────────────────────
-
+    # Console helpers
     def _log(self, text: str, tag: str = "") -> None:
-        """Append *text* to the embedded console, optionally coloured by *tag*.
+        """Append text to the console widget, optionally applying a colour tag.
 
         Args:
-            text: The string to append.
-            tag: Optional named tag for foreground colour.
+            text: The string to append to the console.
+            tag: Named colour tag to apply (``'info'``, ``'error'``, ``'dim'``,
+                or ``'head'``). Pass an empty string or omit for the default
+                console colour.
         """
         self._console.config(state="normal")
         if tag:
@@ -314,8 +333,13 @@ class ProcessDatasetWindow:
         self._console.see("end")
         self._console.config(state="disabled")
 
-    def _on_close(self) -> None:
-        """Terminate any running subprocess; persist selections back to the stage dict."""
+    def _on_close(self) -> None: # (Anthropic, 2026)
+        """Terminate any running subprocess and persist selections back to the stage dict.
+
+        Writes the current checkbox state and chosen CSV filename into the
+        stage dict so MainWindow reflects the updated configuration. Also
+        updates the stage's status label with the new selection count.
+        """
         if self._process and self._process.poll() is None:
             self._process.terminate()
         self._stage["selected"] = {

@@ -1,21 +1,10 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-Normalise_Data.py
------------------
-Normalises all numeric columns in a dataset CSV using Min-Max scaling
+The Normalise_Data.py normalises all numeric columns in a dataset CSV using Min-Max scaling
 so every value falls in the range [0, 1], then saves the result alongside
-the original file as ``<stem>_normalised.csv``.
-
-Formula applied per column:
-    x_norm = (x - x_min) / (x_max - x_min)
-
-Columns where min == max (i.e. constant) are set to 0 to avoid
-division-by-zero.
-
-Usage (standalone):
-    python Normalise_Data.py --dataset <path_to_csv>
-
-When launched from the Model Designer GUI the --dataset argument is
-populated automatically from the dropdown selection.
+the original file.
 """
 
 import argparse
@@ -23,9 +12,22 @@ import sys
 from pathlib import Path
 import pandas as pd
 
+def main() -> None: # (Anthropic, 2026)
+    """Normalises numeric columns in a CSV file using Min-Max scaling.
 
-def main() -> None:
-    """Parse CLI arguments and Min-Max normalise numeric columns in the CSV."""
+    Reads the dataset specified by the ``--dataset`` CLI argument, applies
+    Min-Max normalisation to every numeric column so that all values fall in
+    [0, 1], prints a per-column summary and a post-normalisation range check,
+    then writes the result to a new file named ``<stem>_normalised.csv`` in the
+    same directory as the input.
+
+    Constant columns (min == max) are set to 0.0 rather than producing a
+    division-by-zero error.
+
+    Raises:
+        SystemExit: If the input file does not exist, cannot be parsed as CSV,
+          or the output file cannot be written.
+    """
     parser = argparse.ArgumentParser(description="Min-Max normalise numeric columns in a dataset CSV.")
     parser.add_argument("--dataset", required=True, help="Absolute path to the input CSV file.")
     args = parser.parse_args()
@@ -70,11 +72,11 @@ def main() -> None:
             status = "normalised"
         print(f"  {col:<38}  {col_min:>12.4f}  {col_max:>12.4f}  {status}")
 
-    # ── Validation ───────────────────────────────────────────────────
+    # Validation
     print(f"\nPost-normalisation range check (numeric columns):")
     print(df_out[numeric_cols].describe().loc[["min", "max"]].to_string())
 
-    # ── Save ─────────────────────────────────────────────────────────
+    # Save
     out_path = input_path.parent / (input_path.stem + "_normalised.csv")
     try:
         df_out.to_csv(out_path)
@@ -85,7 +87,6 @@ def main() -> None:
         sys.exit(1)
 
     print("\n=== Normalise Data complete ===")
-
 
 if __name__ == "__main__":
     main()

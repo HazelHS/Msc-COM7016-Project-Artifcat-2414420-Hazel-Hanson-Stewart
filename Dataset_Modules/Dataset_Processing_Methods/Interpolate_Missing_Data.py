@@ -1,15 +1,10 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-Interpolate_Missing_Data.py
----------------------------
-Fills gaps in a dataset CSV using linear interpolation (limit = 5
+The Interpolate_Missing_Data.py fills gaps in a dataset CSV using linear interpolation (limit = 5
 consecutive missing values per gap) and saves the result alongside
-the original file as ``<stem>_interpolated.csv``.
-
-Usage (standalone):
-    python Interpolate_Missing_Data.py --dataset <path_to_csv>
-
-When launched from the Model Designer GUI the --dataset argument is
-populated automatically from the dropdown selection.
+the original file.
 """
 
 import argparse
@@ -17,9 +12,23 @@ import sys
 from pathlib import Path
 import pandas as pd
 
+def main() -> None: # (Anthropic, 2026)
+    """Fills missing values in a CSV file using linear interpolation.
 
-def main() -> None:
-    """Parse CLI arguments and interpolate missing values in the CSV."""
+    Reads the dataset specified by the ``--dataset`` CLI argument and applies
+    linear interpolation to every numeric column, filling gaps of up to 5
+    consecutive missing values in either direction. Prints a per-column
+    summary of how many missing values were filled and how many remain, then
+    writes the result to a new file named ``<stem>_interpolated.csv`` in the
+    same directory as the input.
+
+    Gaps longer than 5 consecutive missing values will only be partially
+    filled from their edges; remaining NaN cells are preserved in the output.
+
+    Raises:
+        SystemExit: If the input file does not exist, cannot be parsed as CSV,
+          or the output file cannot be written.
+    """
     parser = argparse.ArgumentParser(description="Interpolate missing values in a dataset CSV.")
     parser.add_argument("--dataset", required=True, help="Absolute path to the input CSV file.")
     args = parser.parse_args()
@@ -41,7 +50,7 @@ def main() -> None:
     missing_before = df.isna().sum().sum()
     print(f"Total missing values before interpolation: {missing_before}")
 
-    # ── Interpolation ─────────────────────────────────────────────────
+    # Interpolation
     numeric_cols = df.select_dtypes(include="number").columns.tolist()
     if not numeric_cols:
         print("No numeric columns to interpolate. Exiting.")
@@ -60,7 +69,7 @@ def main() -> None:
     print(f"\nTotal missing values after  interpolation: {missing_after}")
     print(f"Cells filled: {missing_before - missing_after}")
 
-    # ── Save ──────────────────────────────────────────────────────────
+    # Save
     out_path = input_path.parent / (input_path.stem + "_interpolated.csv")
     try:
         df_out.to_csv(out_path)
@@ -71,7 +80,6 @@ def main() -> None:
         sys.exit(1)
 
     print("\n=== Interpolate Missing Data complete ===")
-
 
 if __name__ == "__main__":
     main()

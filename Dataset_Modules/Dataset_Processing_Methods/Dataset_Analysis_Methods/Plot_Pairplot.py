@@ -1,32 +1,9 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-Plot_Pairplot.py
-----------------
-Generates a seaborn pairplot showing pairwise relationships between numeric
-features in a dataset CSV file.
-
-- If the dataset has 10 or fewer columns the full pairplot is produced.
-- If there are more than 10 columns, highly correlated features (>0.8) are
-  removed and at most 8 remaining columns are selected to keep the chart
-  readable.
-
-Opens the chart in an interactive window. The interactive matplotlib
-window includes a save button (floppy-disk icon) in the toolbar — click
-it to export the figure to any folder and format you choose.
-
-An optional --output-dir argument will also auto-save the figure to
-that directory as ``pairplot.png`` (or ``pairplot_selected.png`` when
-column subsetting is applied) before the window opens.
-
-Usage (standalone):
-    python Plot_Pairplot.py --dataset <path_to_csv>
-    python Plot_Pairplot.py --dataset <path_to_csv> --output-dir <path_to_folder>
-
-When launched from the Model Designer GUI the --dataset argument is
-populated automatically from the dropdown selection.
-
-References:
-    Anthropic. (2024). Claude (claude-sonnet) [Large language model].
-    https://www.anthropic.com
+The Plot_Pairplot.py script generates a seaborn pairplot showing pairwise relationships 
+between numeric features in a dataset CSV file.
 """
 
 import argparse
@@ -38,12 +15,17 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-
-def main() -> None:
+def main() -> None: # (Anthropic, 2026)
     """Parse CLI arguments and render a seaborn pairplot.
 
-    Loads the CSV and creates a scatter-matrix (pairplot) for all numeric
-    columns.  Auto-saves to *--output-dir* when provided.
+    Loads the CSV at --dataset and creates a scatter-matrix for all numeric
+    columns.  When the dataset has 10 or fewer numeric columns the full
+    pairplot is produced; for larger datasets, features with pairwise
+    correlation above 0.8 are dropped and at most 8 columns are kept to
+    preserve readability.  The figure is displayed interactively.  If
+    --output-dir is supplied the figure is also auto-saved to that
+    directory as pairplot.png (or pairplot_selected.png when column
+    subsetting is applied) before the window opens.
     """
     parser = argparse.ArgumentParser(
         description="Plot a pairplot for a dataset CSV."
@@ -79,7 +61,7 @@ def main() -> None:
     print(f"Dataset shape: {df.shape[0]} rows x {df.shape[1]} columns")
     print(f"Numeric columns to plot: {n_cols}")
 
-    # ── Column selection ──────────────────────────────────────────────
+    # Column selection
     if n_cols <= 10:
         plot_df = numeric_df
         title = "Pairwise Relationships Between Features"
@@ -103,7 +85,7 @@ def main() -> None:
         filename = "pairplot_selected.png"
         print(f"Selected {len(important_cols)} column(s): {important_cols}")
 
-    # ── Build plot ────────────────────────────────────────────────────
+    # Build plot
     plt.figure(figsize=(20, 20))
     pair_grid = sns.pairplot(
         plot_df,
@@ -113,7 +95,7 @@ def main() -> None:
     pair_grid.figure.suptitle(title, y=1.02, fontsize=20)
     plt.tight_layout()
 
-    # ── Optional auto-save ────────────────────────────────────────────
+    # Optional auto-save 
     if args.output_dir:
         out_dir = Path(args.output_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -131,7 +113,6 @@ def main() -> None:
 
     plt.show()
     print("=== Plot Pairplot complete ===")
-
 
 if __name__ == "__main__":
     main()

@@ -1,13 +1,9 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-main_window.py
---------------
-Main GUI window for the Model Designer application.
-
-Pipeline stages are displayed top-to-bottom.  Stages that support
-multi-script selection show a "Configure" button that opens a checklist
-window; the remaining stages use a combobox for single-script selection.
-
-A "Run" button per stage executes that stage's selected scripts sequentially.
+main_window.py is the primary GUI window for the Model Designer application, built with Tkinter. 
+It provides an interface for users to select and run scripts
 """
 
 import collections
@@ -37,21 +33,17 @@ from .process_dataset_window import ProcessDatasetWindow
 from .feature_selection_window import FeatureSelectionWindow
 from .training_configure_window import TrainingConfigureWindow
 
-# ── Feature Selection window ──────────────────────────────────────────────
-
-# ── Training Configure window ─────────────────────────────────────────────
-
-class MainWindow:
+class MainWindow: # (Anthropic, 2026)
     """Primary application window."""
 
     CONSOLE_BG = "#1e1e1e"
     CONSOLE_FG = "#d4d4d4"
 
-    def __init__(self, root: tk.Tk) -> None:
-        """Initialise the main application window and build the UI.
+    def __init__(self, root: tk.Tk) -> None: # (Anthropic, 2026)
+        """Initialise the main application window and build all UI components.
 
         Args:
-            root: The root ``tk.Tk`` instance that owns this window.
+            root: The root tk.Tk instance that owns this window.
         """
         self.root = root
         self.root.title("Model Designer")
@@ -76,12 +68,9 @@ class MainWindow:
         self._build_ui()
         self._poll_output()
 
-    # ------------------------------------------------------------------
     # UI construction
-    # ------------------------------------------------------------------
-
-    def _build_ui(self) -> None:
-        """Assemble all widgets."""
+    def _build_ui(self) -> None: # (Anthropic, 2026)
+        """Assemble all pipeline-selector widgets and the console output panel."""
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(1, weight=1)
 
@@ -174,7 +163,7 @@ class MainWindow:
                     stage["run_btn"] = run_btn
 
             else:
-                # ── Single-select: Combobox ────────────────────────────
+                # Single-select: Combobox
                 var = tk.StringVar()
                 combo = ttk.Combobox(
                     selector_panel, textvariable=var, state="readonly", width=40
@@ -185,7 +174,7 @@ class MainWindow:
                          "dir": abs_dir, "diagram_btn": None}
 
                 if diagram_rel:
-                    # ── Optional "Create Diagram" button ───────────────
+                    # Optional "Create Diagram" button
                     diagram_abs = os.path.join(ROOT_DIR, diagram_rel)
                     diag_btn = ttk.Button(
                         selector_panel,
@@ -199,7 +188,7 @@ class MainWindow:
                 else:
                     run_col, run_span = 2, 1
 
-                # ── AI Training Method: Configure button opens dedicated window ─
+                # AI Training Method: Configure button opens dedicated window
                 if label_text == "AI Training Method":
                     cfg_btn = ttk.Button(
                         selector_panel,
@@ -239,7 +228,7 @@ class MainWindow:
             row=len(PIPELINE_STAGES), column=3, padx=(8, 0), pady=(6, 0), sticky="e"
         )
 
-        # ── Console output ─────────────────────────────────────────────
+        # Console output
         console_frame = ttk.LabelFrame(
             self.root, text="Console Output", padding=(6, 4)
         )
@@ -264,7 +253,7 @@ class MainWindow:
         self.console.tag_config("dim",   foreground="#6a9955")
         self.console.tag_config("head",  foreground="#dcdcaa")
 
-        # ── Bottom action bar ──────────────────────────────────────────
+        # Bottom action bar
         action_bar = ttk.Frame(self.root, padding=(8, 6))
         action_bar.grid(row=2, column=0, sticky="ew")
 
@@ -289,12 +278,18 @@ class MainWindow:
             side="right", padx=(0, 4)
         )
 
-    # ------------------------------------------------------------------
     # Script discovery / combo population
-    # ------------------------------------------------------------------
+    def _populate_combo(self, stage: dict) -> None: # (Anthropic, 2026)
+        """Populate a single-select stage's combobox with available scripts.
 
-    def _populate_combo(self, stage: dict) -> None:
-        """Fill a single-select stage's combobox from its source directory."""
+        Scans the stage's configured directory for Python scripts and updates
+        the combobox values. Resets the selection to the first available script
+        if the current value is no longer present on disk.
+
+        Args:
+            stage: A single-select stage dict containing ``combo``, ``var``,
+                and ``dir`` keys.
+        """
         scripts = discover_scripts(stage["dir"])
         stage["combo"]["values"] = scripts
         if scripts:
@@ -303,8 +298,13 @@ class MainWindow:
         else:
             stage["var"].set("")
 
-    def _refresh_all(self) -> None:
-        """Re-scan all stage directories; update comboboxes / prune selections."""
+    def _refresh_all(self) -> None: # (Anthropic, 2026)
+        """Re-scan all stage directories and update script lists.
+
+        For multi-select stages, removes any previously selected scripts that
+        no longer exist on disk. For single-select stages, repopulates the
+        combobox with newly discovered scripts.
+        """
         for stage in self._stages:
             if stage["multi"]:
                 # Drop any selected scripts that no longer exist on disk
@@ -316,12 +316,18 @@ class MainWindow:
                 self._populate_combo(stage)
         self._log("All script lists refreshed.\n", tag="dim")
 
-    # ------------------------------------------------------------------
     # Run helpers
-    # ------------------------------------------------------------------
+    def _set_running(self, is_running: bool) -> None: # (Anthropic, 2026)
+        """Toggle interactive controls between running and idle states.
 
-    def _set_running(self, is_running: bool) -> None:
-        """Toggle button states and update status label."""
+        Disables all Run, Configure, Analyse, Feature Selection, and diagram
+        buttons while a script is executing, and re-enables them on completion.
+        Updates the status label accordingly.
+
+        Args:
+            is_running: If True, enter the running state; if False, return to
+                idle and reset the status label to "Ready".
+        """
         state = "disabled" if is_running else "normal"
         self.stop_btn.config(state="normal" if is_running else "disabled")
         for stage in self._stages:
@@ -343,8 +349,17 @@ class MainWindow:
         if not is_running:
             self.status_var.set("Ready")
 
-    def _on_run_single(self, abs_dir: str, var: tk.StringVar) -> None:
-        """Run the script selected in a single-select combobox stage."""
+    def _on_run_single(self, abs_dir: str, var: tk.StringVar) -> None: # (Anthropic, 2026)
+        """Run the script currently selected in a single-select combobox stage.
+
+        Clears the run queue and enqueues the selected script for immediate
+        execution. Logs an error if no script is selected.
+
+        Args:
+            abs_dir: Absolute path to the directory containing the stage scripts.
+            var: The StringVar bound to the stage's combobox, holding the
+                currently selected script filename.
+        """
         selected = var.get()
         if not selected:
             self._log("No script selected.\n", tag="error")
@@ -354,8 +369,18 @@ class MainWindow:
         self._start_next()
 
     def _on_run_diagram(self, diagram_script: str, model_var: tk.StringVar,
-                        model_dir: str) -> None:
-        """Run the diagram generator, passing the currently-selected model script."""
+                        model_dir: str) -> None: # (Anthropic, 2026)
+        """Run the diagram-generation script for the currently selected model.
+
+        Passes the full path of the selected model script as a CLI argument to
+        the diagram generator. Logs an error if no model is selected in the
+        AI Model Designs combobox.
+
+        Args:
+            diagram_script: Absolute path to the diagram-generation script.
+            model_var: A StringVar holding the currently selected model filename.
+            model_dir: Absolute path to the directory containing model scripts.
+        """
         selected = model_var.get()
         if not selected:
             self._log(
@@ -373,8 +398,20 @@ class MainWindow:
         )
         self._start_next()
 
-    def _on_run_multi(self, stage: dict) -> None:
-        """Run all checked scripts in a multi-select stage."""
+    def _on_run_multi(self, stage: dict) -> None: # (Anthropic, 2026)
+        """Run all selected scripts for a multi-select pipeline stage sequentially.
+
+        Builds any required CLI arguments from the stage's stored configuration
+        (date range, dataset CSV, or trained model path), then enqueues all
+        selected scripts for sequential execution. For Dataset Collection stages,
+        a CSV merge callback is appended automatically after the last script.
+
+        Args:
+            stage: A multi-select stage dict containing ``selected``,
+                ``label_text``, ``dir``, and optional configuration keys such
+                as ``start_date``, ``end_date``, ``freq``, ``dataset_csv``,
+                and ``model_file``.
+        """
         selected = sorted(stage["selected"])   # deterministic order
         if not selected:
             self._log(
@@ -442,8 +479,13 @@ class MainWindow:
         )
         self._start_next()
 
-    def _start_next(self) -> None:
-        """Pop and launch the next script (or callback) in the queue, if any."""
+    def _start_next(self) -> None: # (Anthropic, 2026)
+        """Pop and launch the next entry from the run queue.
+
+        Each queue entry is either a ``(script_path, extra_args)`` tuple or a
+        ``(None, callable)`` tuple representing a post-run callback. Transitions
+        to idle and logs a completion message when the queue is empty.
+        """
         if not self._run_queue:
             self._set_running(False)
             self._log("\n=== All queued scripts finished ===\n", tag="head")
@@ -473,8 +515,15 @@ class MainWindow:
         )
         thread.start()
 
-    def _run_callback(self, callback) -> None:
-        """Execute a post-run *callback* on a background thread, then advance the queue."""
+    def _run_callback(self, callback) -> None: # (Anthropic, 2026)
+        """Execute a post-run callback on a background thread.
+
+        Calls callback(), then pushes a None sentinel onto the output queue so
+        the poll loop advances to the next queued entry.
+
+        Args:
+            callback: A zero-argument callable to invoke as a post-run step.
+        """
         try:
             callback()
         except Exception as exc:
@@ -482,16 +531,25 @@ class MainWindow:
         finally:
             self._output_queue.put(None)  # sentinel → _poll_output → _start_next
 
-    def _merge_collection_csvs(self, stage: dict) -> None:
-        """
-        After all Dataset Collection scripts finish, merge every individual
-        single-column CSV they produced into one combined CSV, then delete
-        the individual files.
+    def _merge_collection_csvs(self, stage: dict) -> None: # (Anthropic, 2026)
+        """Merge per-script CSVs produced by a Dataset Collection run into one file.
 
-        Expected file names are derived directly from the selected script
-        names (e.g. ``currency_btc_price.py`` → ``currency_btc_price.csv``).
-        The combined file is written to the same ``dataset_output/`` folder
-        and named ``{start_year}-{end_year}_dataset_collection.csv``.
+        Called automatically after all Dataset Collection scripts finish. Reads
+        each per-script CSV from the ``dataset_output`` directory, outer-joins
+        them on the shared datetime index, and writes the combined result to a
+        file named ``{start_year}-{end_year}_dataset_collection.csv``. The
+        individual per-script files are deleted once the combined file is safely
+        written to disk.
+
+        The expected CSV filename for each script is derived by replacing the
+        ``.py`` extension with ``.csv`` (e.g. ``currency_btc_price.py`` →
+        ``currency_btc_price.csv``). Missing expected files are logged as
+        warnings but do not abort the merge.
+
+        Args:
+            stage: The multi-select stage dict for the Dataset Collection stage,
+                used to resolve the selected scripts, the output directory path,
+                and the configured date range (``start_date``, ``end_date``).
         """
         output_dir = os.path.join(os.path.dirname(stage["dir"]), "dataset_output")
         selected   = sorted(stage["selected"])
@@ -569,8 +627,18 @@ class MainWindow:
         except Exception as exc:
             self._output_queue.put(f"[ERROR] CSV merge failed: {exc}\n")
 
-    def _run_script(self, script_path: str, extra_args: list[str]) -> None:
-        """Execute *script_path* as a subprocess; stream stdout to the queue."""
+    def _run_script(self, script_path: str, extra_args: list[str]) -> None: # (Anthropic, 2026)
+        """Execute a Python script as a subprocess and stream its output.
+
+        Launches script_path with the current interpreter, combining stdout and
+        stderr into a single stream forwarded line-by-line to the output queue.
+        Pushes a None sentinel on completion so the poll loop can advance the
+        run queue.
+
+        Args:
+            script_path: Absolute path to the Python script to execute.
+            extra_args: Additional command-line arguments forwarded to the script.
+        """
         try:
             self._process = subprocess.Popen(
                 [sys.executable, script_path, *extra_args],
@@ -594,19 +662,21 @@ class MainWindow:
             # None sentinel → poll loop will call _start_next
             self._output_queue.put(None)
 
-    def _on_stop(self) -> None:
-        """Terminate the running subprocess and clear any queued scripts."""
+    def _on_stop(self) -> None: # (Anthropic, 2026)
+        """Terminate the active subprocess and discard all queued scripts."""
         self._run_queue.clear()
         if self._process and self._process.poll() is None:
             self._process.terminate()
         self._log("\n[Process terminated by user — queue cleared]\n", tag="error")
 
-    # ------------------------------------------------------------------
     # Output polling
-    # ------------------------------------------------------------------
+    def _poll_output(self) -> None: # (Anthropic, 2026)
+        """Drain pending lines from the output queue and write them to the console.
 
-    def _poll_output(self) -> None:
-        """Drain the output queue; on sentinel, advance to the next script."""
+        Scheduled repeatedly via tk.after. A None sentinel emitted by a finished
+        script or callback triggers _start_next to launch the next queued entry
+        or return to idle.
+        """
         try:
             while True:
                 item = self._output_queue.get_nowait()
@@ -620,17 +690,15 @@ class MainWindow:
         finally:
             self.root.after(50, self._poll_output)
 
-    # ------------------------------------------------------------------
     # Console helpers
-    # ------------------------------------------------------------------
-
-    def _log(self, text: str, tag: str = "") -> None:
-        """Append *text* to the embedded console, optionally with a colour *tag*.
+    def _log(self, text: str, tag: str = "") -> None: # (Anthropic, 2026)
+        """Append text to the console widget, optionally applying a colour tag.
 
         Args:
-            text: The string to append.
-            tag: Optional named tag (``'info'``, ``'error'``, ``'dim'``, ``'head'``)
-                controlling foreground colour.
+            text: The string to append to the console.
+            tag: Named colour tag to apply (``'info'``, ``'error'``, ``'dim'``,
+                or ``'head'``). Pass an empty string or omit for the default
+                console colour.
         """
         self.console.config(state="normal")
         if tag:
@@ -640,8 +708,8 @@ class MainWindow:
         self.console.see("end")
         self.console.config(state="disabled")
 
-    def _clear_console(self) -> None:
-        """Erase all text in the embedded console widget."""
+    def _clear_console(self) -> None: # (Anthropic, 2026)
+        """Erase all text from the embedded console widget."""
         self.console.config(state="normal")
         self.console.delete("1.0", "end")
         self.console.config(state="disabled")

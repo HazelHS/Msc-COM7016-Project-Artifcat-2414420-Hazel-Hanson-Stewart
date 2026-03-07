@@ -1,27 +1,10 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-Plot_Distribution_Outliers.py
-------------------------------
-Generates violin plots (with embedded box plots) for every numeric column
+The Plot_Distribution_Outliers.py scriprt generates violin plots (with embedded box plots) for every numeric column
 in a dataset CSV, overlaying red scatter points for values that are more
 than 3 standard deviations from the column mean.
-
-Opens the chart in an interactive window.  The interactive matplotlib
-window includes a save button (floppy-disk icon) in the toolbar — click
-it to export the figure to any folder and format you choose.
-
-An optional --output-dir argument will also auto-save the figure to
-that directory as ``distribution_outliers.png`` before the window opens.
-
-Usage (standalone):
-    python Plot_Distribution_Outliers.py --dataset <path_to_csv>
-    python Plot_Distribution_Outliers.py --dataset <path_to_csv> --output-dir <path_to_folder>
-
-When launched from the Model Designer GUI the --dataset argument is
-populated automatically from the dropdown selection.
-
-References:
-    Anthropic. (2024). Claude (claude-sonnet) [Large language model].
-    https://www.anthropic.com
 """
 
 import argparse
@@ -33,12 +16,16 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import seaborn as sns
 
-
-def main() -> None:
+def main() -> None: # (Anthropic, 2026)
     """Parse CLI arguments and plot violin/outlier distributions per column.
 
-    Loads the CSV and produces violin plots alongside box plots for each
-    numeric column.  Auto-saves to *--output-dir* when provided.
+    Loads the CSV at --dataset and produces one seaborn violin plot with
+    an embedded box plot for each numeric column, arranged in rows of
+    three.  Values more than 3 standard deviations from the column mean
+    are overlaid as red scatter points.  The figure is displayed
+    interactively.  If --output-dir is supplied the figure is also
+    auto-saved to that directory as distribution_outliers.png before
+    the window opens.
     """
     parser = argparse.ArgumentParser(
         description="Plot violin/outlier distributions for each column in a dataset CSV."
@@ -73,7 +60,7 @@ def main() -> None:
     print(f"Dataset shape: {df.shape[0]} rows x {df.shape[1]} columns")
     print(f"Plotting distributions for {len(numeric_df.columns)} numeric column(s)...")
 
-    # ── Build plot ────────────────────────────────────────────────────
+    # Build plot 
     n_cols = len(numeric_df.columns)
     n_rows = (n_cols + 2) // 3   # arrange in rows of 3 plots
 
@@ -98,7 +85,7 @@ def main() -> None:
 
     plt.tight_layout()
 
-    # ── Optional auto-save ────────────────────────────────────────────
+    # Optional auto-save 
     if args.output_dir:
         out_dir = Path(args.output_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -116,7 +103,6 @@ def main() -> None:
 
     plt.show()
     print("=== Plot Distribution & Outliers complete ===")
-
 
 if __name__ == "__main__":
     main()

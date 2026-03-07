@@ -1,15 +1,8 @@
-﻿"""
-col_volatility_ovx.py
-----------------------
-Single-column dataset feature.
+﻿# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
 
-Column : Volatility_Crude Oil Volatility Index (OVX)
-Source : Yahoo Finance – ^OVX  (CBOE Crude Oil Volatility Index)
-Output : Dataset_Modules/dataset_output/2015-2025_volatility_ovx.csv
-
-Run standalone:
-    python col_volatility_ovx.py
-Or select via Model Designer → Dataset Collection Method → Configure.
+"""
+col_volatility_ovx.py, creates a dataset of the CBOE Crude Oil Volatility Index (OVX), sourced from Yahoo Finance.
 """
 
 import os
@@ -25,20 +18,24 @@ OUTPUT_FILENAME    = "volatility_ovx.csv"
 COLUMN_NAME        = "Volatility_Crude Oil Volatility Index (OVX)"
 RATE_LIMIT_TIMEOUT = 2
 
+def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interval: str = "1d") -> pd.DataFrame: # (Anthropic, 2026)
+    """Download the CBOE OVX index from Yahoo Finance and re-index to date_range.
 
-def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interval: str = "1d") -> pd.DataFrame:
-    """Download the CBOE OVX index from Yahoo Finance and re-index to *date_range*.
+    A short sleep is applied before the request to respect Yahoo Finance
+    rate limits.
 
     Args:
-        start_date: ISO date string (``YYYY-MM-DD``) for the download start.
-        end_date: ISO date string (``YYYY-MM-DD``) for the download end.
-        date_range: Full pandas DatetimeIndex to re-index the result onto.
-        interval: yfinance interval string (e.g. ``"1d"`` for daily).
+        start_date: Download start date as an ISO string (YYYY-MM-DD).
+        end_date: Download end date as an ISO string (YYYY-MM-DD).
+        date_range: DatetimeIndex to re-index the downloaded data onto.
+            Dates absent from the download are filled with NaN.
+        interval: yfinance interval string, e.g. "1d" for daily data.
+            Defaults to "1d".
 
     Returns:
-        Single-column DataFrame indexed by *date_range* with column
-        ``Volatility_Crude Oil Volatility Index (OVX)`` holding the daily
-        crude-oil implied volatility readings.
+        A single-column DataFrame indexed by date_range with column
+        "Volatility_Crude Oil Volatility Index (OVX)" containing the
+        daily crude-oil implied volatility readings.
     """
     print("  Fetching ^OVX …")
     time.sleep(RATE_LIMIT_TIMEOUT)
@@ -48,9 +45,15 @@ def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interv
     out[COLUMN_NAME] = raw["Close"].squeeze()
     return out
 
+def main() -> None: # (Anthropic, 2026)
+    """Parse CLI arguments, collect CBOE OVX data, and save the output CSV.
 
-def main() -> None:
-    """Parse CLI arguments, collect CBOE OVX data, and save the output CSV."""
+    Accepts optional --start, --end, and --freq arguments to control the
+    date range and data frequency.  Defaults are sourced from
+    DEFAULT_START_DATE, DEFAULT_END_DATE, and "1d" respectively.  The
+    resulting CSV is written to the dataset output directory as
+    volatility_ovx.csv.
+    """
     import argparse
     parser = argparse.ArgumentParser(description=OUTPUT_FILENAME)
     parser.add_argument("--start", default=None,

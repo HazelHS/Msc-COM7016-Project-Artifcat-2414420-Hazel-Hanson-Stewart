@@ -1,22 +1,22 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-Check_Missing_Data.py
----------------------
-Analyses a dataset CSV for missing values and duplicate rows.
-
-Usage (standalone):
-    python Check_Missing_Data.py --dataset <path_to_csv>
-
-When launched from the Model Designer GUI the --dataset argument is
-populated automatically from the dropdown selection.
+The Check_Missing_Data.py script analyses a dataset CSV for missing values and duplicate rows.
 """
 
 import argparse
 import sys
 import pandas as pd
 
+def main() -> None: # (Anthropic, 2026)
+    """Parse CLI arguments and report missing and duplicate data in the CSV.
 
-def main() -> None:
-    """Parse CLI arguments and report missing and duplicate data in the CSV."""
+    Loads the CSV at --dataset and prints three sections to stdout: a
+    per-column missing-value count with overall percentage, a duplicate-row
+    count with the full text of any duplicates, and a unique-value count
+    per column.
+    """
     parser = argparse.ArgumentParser(description="Check dataset for missing / duplicate data.")
     parser.add_argument("--dataset", required=True, help="Absolute path to the input CSV file.")
     args = parser.parse_args()
@@ -31,7 +31,7 @@ def main() -> None:
     print(f"\nDataset shape: {df.shape[0]} rows x {df.shape[1]} columns")
     print(f"Columns: {list(df.columns)}\n")
 
-    # ── Missing values ────────────────────────────────────────────────
+    # Missing values
     missing = df.isna().sum()
     total_missing = missing.sum()
     print("=" * 50)
@@ -56,7 +56,7 @@ def main() -> None:
     else:
         print("\nNo missing values found.")
 
-    # ── Duplicates ────────────────────────────────────────────────────
+    # Duplicates
     dup_mask = df.duplicated(keep="first")
     dup_count = dup_mask.sum()
     print("\n" + "=" * 50)
@@ -67,14 +67,13 @@ def main() -> None:
         print("\nDuplicate rows:")
         print(df[dup_mask].to_string())
 
-    # ── Unique values per column ──────────────────────────────────────
+    # Unique values per column 
     print("\n" + "=" * 50)
     print("UNIQUE VALUES PER COLUMN")
     print("=" * 50)
     print(df.nunique().to_string())
 
     print("\n=== Check Missing Data complete ===")
-
 
 if __name__ == "__main__":
     main()

@@ -1,21 +1,10 @@
-﻿"""
-col_btc_stock_to_flow.py
--------------------------
-Single-column dataset feature.
+﻿# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
 
-Column : S2F Model
-Source : Blockchain.info API – total bitcoin supply, combined with the
-         theoretical daily block production derived from Bitcoin's halving
-         schedule (genesis block: 2009-01-03, halving every 210,000 blocks).
-
-         S2F ratio  = total supply / (daily production × 365)
-         Model price = exp(-1.84) × S2F^3.36   (PlanB original model)
-
-Output : Dataset_Modules/dataset_output/2015-2025_btc_stock_to_flow.csv
-
-Run standalone:
-    python col_btc_stock_to_flow.py
-Or select via Model Designer → Dataset Collection Method → Configure.
+"""
+col_btc_stock_to_flow.py creates a single-column dataset feature for the "stock to flow" (STF) model price of 
+Bitcoin, based on the total supply and halving schedule. The S2F model is a popular framework in the crypto community 
+that relates scarcity (stock) to new supply (flow) to estimate Bitcoin's value.
 """
 
 import os
@@ -38,44 +27,43 @@ BLOCK_TIME_MINUTES = 10
 BLOCKS_PER_DAY     = (24 * 60) // BLOCK_TIME_MINUTES   # 144
 INITIAL_REWARD     = 50.0                               # BTC per block
 
-
-def _block_reward(block_height: int) -> float:
-    """Compute the BTC block reward at *block_height* from the halving schedule.
+def _block_reward(block_height: int) -> float: # (Anthropic, 2026)
+    """Compute the BTC block reward at block_height using the halving schedule.
 
     Args:
         block_height: Cumulative block count since the genesis block.
 
     Returns:
-        BTC reward per block as a float (halves every 210,000 blocks).
+        The BTC reward per block as a float, halving every 210,000 blocks
+        from an initial reward of 50 BTC.
     """
     halvings = block_height // HALVING_INTERVAL
     return INITIAL_REWARD / (2 ** halvings)
 
+def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, freq: str = "1d") -> pd.DataFrame: # (Anthropic, 2026)
+    """Compute the Bitcoin Stock-to-Flow model price series over date_range.
 
-def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, freq: str = "1d") -> pd.DataFrame:
-    """Compute the Bitcoin Stock-to-Flow ratio using the Blockchain.info API.
-
-    Fetches the cumulative total bitcoin supply from the Blockchain.info
-    ``charts/total-bitcoins`` endpoint, estimates daily new supply from the
-    halving schedule, and computes the S2F ratio and the PlanB model price
-    estimate (``exp(-1.84) * S2F ** 3.36``).
+    Fetches cumulative total Bitcoin supply from the Blockchain.info
+    charts/total-bitcoins endpoint, estimates daily new supply from the
+    halving schedule, then applies the PlanB S2F model price formula
+    (exp(-1.84) * S2F ** 3.36). Returns an all-NaN DataFrame if the
+    API request fails or returns no data.
 
     Args:
-        start_date: ISO date string (``YYYY-MM-DD``) for the request start.
-        end_date: ISO date string (``YYYY-MM-DD``) for the request end.
+        start_date: ISO date string (YYYY-MM-DD) for the request start.
+        end_date: ISO date string (YYYY-MM-DD) for the request end.
         date_range: pandas DatetimeIndex to re-index the result onto.
-        freq: Data frequency string.  Must be a member of
-            ``BLOCKCHAIN_SUPPORTED_FREQS`` (``"1d"``, ``"5d"``,
-            ``"1wk"``, ``"1mo"``, ``"3mo"``).
+        freq: Data frequency string. Must be one of the values in
+          BLOCKCHAIN_SUPPORTED_FREQS ("1d", "5d", "1wk", "1mo", "3mo").
 
     Returns:
-        Single-column DataFrame indexed by *date_range* with column
-        ``BTC Stock-to-Flow (PlanB model price USD)``.
-        Returns an all-NaN DataFrame if the API request fails.
+        A single-column DataFrame indexed by date_range with the column
+        "S2F Model" holding the PlanB model price in USD. All values are
+        NaN if the upstream API request fails.
 
     Raises:
-        UnsupportedIntervalError: If *freq* requests sub-daily granularity
-            that the Blockchain.info API does not support.
+        UnsupportedIntervalError: If freq is not in BLOCKCHAIN_SUPPORTED_FREQS,
+          indicating sub-daily granularity that the API does not support.
     """
     if freq.lower() not in BLOCKCHAIN_SUPPORTED_FREQS:
         raise UnsupportedIntervalError(
@@ -125,9 +113,13 @@ def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, freq: 
 
     return s2f[[COLUMN_NAME]]
 
+def main() -> None: # (Anthropic, 2026)
+    """Parse CLI arguments, collect the BTC Stock-to-Flow series, and save the result to CSV.
 
-def main() -> None:
-    """Parse CLI arguments, collect the BTC Stock-to-Flow series, and save the output CSV."""
+    Reads --start, --end, and --freq from the command line, calls collect(),
+    and writes the output to dataset_output/btc_stock_to_flow.csv.
+    Prints a confirmation message on success or an error message on failure.
+    """
     import argparse
     parser = argparse.ArgumentParser(description=OUTPUT_FILENAME)
     parser.add_argument("--start", default=None,

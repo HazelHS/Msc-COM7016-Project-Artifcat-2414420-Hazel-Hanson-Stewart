@@ -1,15 +1,9 @@
-﻿"""
-col_currency_btc_volume.py
----------------------------
-Single-column dataset feature.
+﻿# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
 
-Column : BTC Volume
-Source : Yahoo Finance – BTC-USD  (Bitcoin daily trading volume in USD)
-Output : Dataset_Modules/dataset_output/2015-2025_currency_btc_volume.csv
-
-Run standalone:
-    python col_currency_btc_volume.py
-Or select via Model Designer -> Dataset Collection Method -> Configure.
+"""
+col_currency_btc_volume.py, creates a single-column dataset feature dataset for the 
+BTC/USD trading volume data sourced from Yahoo Finance.
 """
 
 import os
@@ -25,19 +19,21 @@ OUTPUT_FILENAME    = "currency_btc_volume.csv"
 COLUMN_NAME        = "BTC Volume"
 RATE_LIMIT_TIMEOUT = 2
 
+def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interval: str = "1d") -> pd.DataFrame: # (Anthropic, 2026)
+    """Download BTC daily trading volume from Yahoo Finance and re-index to date_range.
 
-def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interval: str = "1d") -> pd.DataFrame:
-    """Download BTC daily trading volume from Yahoo Finance and re-index to *date_range*.
+    Applies a brief rate-limit delay before downloading. Timezone information
+    is stripped from the Yahoo Finance response before re-indexing.
 
     Args:
-        start_date: ISO date string (``YYYY-MM-DD``) for the download start.
-        end_date: ISO date string (``YYYY-MM-DD``) for the download end.
-        date_range: Full pandas DatetimeIndex to re-index the result onto.
-        interval: yfinance interval string (e.g. ``"1d"`` for daily).
+        start_date: ISO date string (YYYY-MM-DD) for the download start.
+        end_date: ISO date string (YYYY-MM-DD) for the download end.
+        date_range: pandas DatetimeIndex to re-index the result onto.
+        interval: yfinance interval string (e.g. "1d" for daily).
 
     Returns:
-        Single-column DataFrame indexed by *date_range* with column
-        ``BTC Volume`` holding the daily trading volume in USD.
+        A single-column DataFrame indexed by date_range with the column
+        "BTC Volume" holding the daily trading volume in USD.
     """
     time.sleep(RATE_LIMIT_TIMEOUT)
     raw = yf.download("BTC-USD", start=start_date, end=end_date, interval=interval, progress=False)
@@ -46,9 +42,13 @@ def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interv
     out[COLUMN_NAME] = raw["Volume"].squeeze()
     return out
 
+def main() -> None: # (Anthropic, 2026)
+    """Parse CLI arguments, collect BTC trading volume data, and save the result to CSV.
 
-def main() -> None:
-    """Parse CLI arguments, collect BTC trading volume data, and save the output CSV."""
+    Reads --start, --end, and --freq from the command line, calls collect(),
+    and writes the output to dataset_output/currency_btc_volume.csv.
+    Prints a confirmation message on success or an error message on failure.
+    """
     import argparse
     parser = argparse.ArgumentParser(description=OUTPUT_FILENAME)
     parser.add_argument("--start", default=None,

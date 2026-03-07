@@ -1,11 +1,15 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
+# (Anthropic, 2026)
 """
 Interface_Modules package
-=========================
-Public API for the GUI layer.  Import from here rather than from individual
+
+Main API for the GUI layer, will import from here rather than from individual
 sub-modules so that callers remain insulated from internal file layout.
 """
 
-from .constants import (
+from .constants import ( 
     ROOT_DIR,
     PIPELINE_STAGES,
     DATASET_OUTPUT_DIR,

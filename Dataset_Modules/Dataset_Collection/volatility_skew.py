@@ -1,15 +1,8 @@
-﻿"""
-col_volatility_skew.py
------------------------
-Single-column dataset feature.
+﻿# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
 
-Column : Volatility_CBOE SKEW Index
-Source : Yahoo Finance – ^SKEW  (CBOE SKEW Index – tail-risk measure)
-Output : Dataset_Modules/dataset_output/2015-2025_volatility_skew.csv
-
-Run standalone:
-    python col_volatility_skew.py
-Or select via Model Designer → Dataset Collection Method → Configure.
+"""
+col_volatility_skew.py, creates a dataset of the CBOE SKEW Index, sourced from Yahoo Finance.
 """
 
 import os
@@ -25,19 +18,23 @@ OUTPUT_FILENAME    = "volatility_skew.csv"
 COLUMN_NAME        = "Volatility_CBOE SKEW Index"
 RATE_LIMIT_TIMEOUT = 2
 
+def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interval: str = "1d") -> pd.DataFrame: # (Anthropic, 2026)
+    """Download the CBOE SKEW index from Yahoo Finance and re-index to date_range.
 
-def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interval: str = "1d") -> pd.DataFrame:
-    """Download the CBOE SKEW index from Yahoo Finance and re-index to *date_range*.
+    A short sleep is applied before the request to respect Yahoo Finance
+    rate limits.
 
     Args:
-        start_date: ISO date string (``YYYY-MM-DD``) for the download start.
-        end_date: ISO date string (``YYYY-MM-DD``) for the download end.
-        date_range: Full pandas DatetimeIndex to re-index the result onto.
-        interval: yfinance interval string (e.g. ``"1d"`` for daily).
+        start_date: Download start date as an ISO string (YYYY-MM-DD).
+        end_date: Download end date as an ISO string (YYYY-MM-DD).
+        date_range: DatetimeIndex to re-index the downloaded data onto.
+            Dates absent from the download are filled with NaN.
+        interval: yfinance interval string, e.g. "1d" for daily data.
+            Defaults to "1d".
 
     Returns:
-        Single-column DataFrame indexed by *date_range* with column
-        ``Volatility_CBOE SKEW Index`` holding the daily tail-risk
+        A single-column DataFrame indexed by date_range with column
+        "Volatility_CBOE SKEW Index" containing the daily tail-risk
         sentiment readings for the S&P 500.
     """
     print("  Fetching ^SKEW …")
@@ -48,9 +45,15 @@ def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, interv
     out[COLUMN_NAME] = raw["Close"].squeeze()
     return out
 
+def main() -> None: # (Anthropic, 2026)
+    """Parse CLI arguments, collect CBOE SKEW data, and save the output CSV.
 
-def main() -> None:
-    """Parse CLI arguments, collect CBOE SKEW data, and save the output CSV."""
+    Accepts optional --start, --end, and --freq arguments to control the
+    date range and data frequency.  Defaults are sourced from
+    DEFAULT_START_DATE, DEFAULT_END_DATE, and "1d" respectively.  The
+    resulting CSV is written to the dataset output directory as
+    volatility_skew.csv.
+    """
     import argparse
     parser = argparse.ArgumentParser(description=OUTPUT_FILENAME)
     parser.add_argument("--start", default=None,

@@ -1,29 +1,17 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-Train_MEMD_TCN.py
------------------
-Self-contained training script for the MEMD-TCN model.
-Based on Yao et al. (2023) / Rehman & Mandic (2010) / Bai et al. (2018).
-
-Pipeline:
-  1. Load CSV  →  auto-detect input channels from numeric columns
-  2. Temporal split  →  min-max scale each split independently
-  3. MEMD decomposition per split  →  fixed n_components = max_imfs + 1 (zero-padded)
-  4. Build MEMDSequenceDataset storing [n_components, n_channels, seq_len] per sample
-  5. Joint optimisation of all TCN blocks via reconstruction MSE
-  6. Save best model checkpoint
-
-Launched by the AI Training Method stage in Model Designer via:
-    python Train_MEMD_TCN.py [CLI args]
-
-All hyperparameter arguments are populated by the TrainingConfigureWindow
-in Interface_Modules/main_window.py (MEMD-TCN panel).
+Self-contained training script for the MEMD-TCN model, derived from Yao et al. (2023), Rehman & Mandic (2010) and Bai et al. (2018).
+This script should be run from the Model Designer in the AI Training Method, all hyperparameter arguments are 
+populated by the TrainingConfigureWindow in Interface_Modules/main_window.py (MEMD-TCN panel).
 """
 
 import sys
 import argparse
 from pathlib import Path
 
-# ── Path setup ───────────────────────────────────────────────────────────────
+# Path setup
 root_path          = Path(__file__).resolve().parent.parent.parent
 model_designs_path = Path(__file__).resolve().parent.parent / "Model_Designs"
 training_path      = Path(__file__).resolve().parent
@@ -32,7 +20,7 @@ sys.path.insert(0, str(root_path))           # for dependency_checker
 sys.path.insert(0, str(model_designs_path))  # for MEMD_TCN
 sys.path.insert(0, str(training_path))       # for train_utils
 
-# ── Shared & model imports ────────────────────────────────────────────────────
+# Shared & model imports
 from train_utils import (
     temporal_train_val_test_split,
     create_dataloaders,
@@ -45,62 +33,52 @@ from MEMD_TCN import MEMD_TCN_Model, memd
 import torch
 import pandas as pd
 
-
-# =============================================================================
 # Custom Dataset for pre-computed MEMD components
-# =============================================================================
-
-class MEMDSequenceDataset(Dataset):
-    """
-    PyTorch Dataset for MEMD-TCN training.
+class MEMDSequenceDataset(Dataset): # (Anthropic, 2026)
+    """PyTorch Dataset for MEMD-TCN training.
 
     Stores pre-computed, fixed-length IMF + residual windows so that MEMD
-    (which is expensive) is run only once per data split.
+    is run only once per data split rather than on every batch.
 
     Args:
-        imf_sequences : ndarray [N, n_components, n_channels, seq_len]
-                        One entry per sliding window.
-        targets       : ndarray [N]
-                        Scaled closing price at the next timestep for each window.
+        imf_sequences: Array of shape [N, n_components, n_channels, seq_len]
+          containing one sliding-window entry per sample.
+        targets: Array of shape [N] containing the scaled closing price at
+          the next timestep for each window.
     """
-    def __init__(self, imf_sequences: np.ndarray, targets: np.ndarray) -> None:
+    def __init__(self, imf_sequences: np.ndarray, targets: np.ndarray) -> None: # (Anthropic, 2026)
         # Store as float32 tensors for direct GPU transfer
         self.imf_sequences = torch.FloatTensor(imf_sequences)  # [N, C, ch, L]
         self.targets        = torch.FloatTensor(targets)         # [N]
 
-    def __len__(self) -> int:
+    def __len__(self) -> int: # (Anthropic, 2026)
         """Return the total number of sliding-window samples."""
         return len(self.targets)
 
-    def __getitem__(self, idx: int):
-        """Return the (IMF windows, target) pair at index *idx*.
+    def __getitem__(self, idx: int): # (Anthropic, 2026)
+        """Return the (IMF windows, target) pair at index idx.
 
         Args:
             idx: Integer sample index.
 
         Returns:
-            Tuple of (imf_sequences[idx], targets[idx]) as float32 tensors.
+            A tuple (imf_sequences[idx], targets[idx]) of float32 tensors.
         """
         return self.imf_sequences[idx], self.targets[idx]
 
-
-# =============================================================================
-# 1 — OHLCV column detection
-# =============================================================================
-
-def _detect_input_columns(df: pd.DataFrame, target_col: str) -> list:
+# 1. OHLCV column detection
+def _detect_input_columns(df: pd.DataFrame, target_col: str) -> list: # (Anthropic, 2026)
     """Identify OHLCV input columns via name-pattern matching.
 
-    Attempts to identify Open, High, Low, Close, Volume columns.  Falls
-    back to all numeric columns when fewer than 5 are found.  The
-    *target_col* is always treated as the Close channel.
+    Falls back to all numeric columns when fewer than 5 OHLCV-like columns
+    are found. target_col is always treated as the Close channel.
 
     Args:
         df: Input DataFrame containing the dataset.
         target_col: Name of the target (Close) column.
 
     Returns:
-        Ordered list of column names to use as MEMD input channels.
+        An ordered list of column names to use as MEMD input channels.
     """
     all_numeric = [
         c for c in df.select_dtypes(include="number").columns
@@ -146,33 +124,30 @@ def _detect_input_columns(df: pd.DataFrame, target_col: str) -> list:
         )
     return ordered
 
-
-# =============================================================================
-# 2 — MEMD decomposition helper
-# =============================================================================
-
+# 2. MEMD decomposition helper
 def _decompose_fixed(
     ohlcv_np: np.ndarray,
     max_imfs: int,
     K: int,
     max_sift: int,
     sd_threshold: float,
-) -> list:
-    """
-    Run MEMD on *ohlcv_np* and return exactly ``max_imfs + 1`` component
-    arrays (zero-padding missing IMF slots so the TCN model dimensions are
-    always consistent across train / val / test splits).
+) -> list: # (Anthropic, 2026)
+    """Run MEMD and return exactly max_imfs + 1 component arrays.
+
+    Missing IMF slots are zero-padded so that TCN model dimensions remain
+    consistent across train, val, and test splits.
 
     Args:
-        ohlcv_np     : ndarray [n_channels, T] — scaled OHLCV, channels-first
-        max_imfs     : Maximum IMFs requested (matches model architecture)
-        K            : Number of Hammersley direction vectors for MEMD
-        max_sift     : Maximum sifting iterations per IMF
-        sd_threshold : Huang et al. (2003) SD stopping criterion
+        ohlcv_np: Scaled OHLCV array of shape [n_channels, T], channels-first.
+        max_imfs: Maximum number of IMFs to extract; must match the model
+          architecture.
+        K: Number of Hammersley direction vectors for MEMD.
+        max_sift: Maximum sifting iterations per IMF.
+        sd_threshold: Huang et al. (2003) SD stopping criterion.
 
     Returns:
-        all_components : list of (max_imfs + 1) ndarrays [n_channels, T]
-                         Indices 0..max_imfs-1 → IMFs, index max_imfs → residual
+        A list of max_imfs + 1 arrays each of shape [n_channels, T], where
+        indices 0 to max_imfs-1 are IMFs and index max_imfs is the residual.
     """
     n_channels, T = ohlcv_np.shape
     imfs, residual = memd(
@@ -190,33 +165,28 @@ def _decompose_fixed(
     all_components = imfs + [residual]          # length = max_imfs + 1
     return all_components
 
-
-# =============================================================================
-# 3 — Sequence builder for one MEMD-decomposed split
-# =============================================================================
-
+# 3. Sequence builder for one MEMD-decomposed split
 def _make_memd_sequences(
     all_components: list,
     y_scaled: np.ndarray,
     close_channel_idx: int,
     sequence_length: int,
-) -> tuple:
-    """
-    Build sliding-window IMF sequences and scalar close-price targets.
-
-    For each window starting at index *i*:
-      - X[i] : ndarray [n_components, n_channels, sequence_length]
-      - y[i] : scalar — scaled close price at timestep i + sequence_length
+) -> tuple: # (Anthropic, 2026)
+    """Build sliding-window IMF sequences and scalar close-price targets.
 
     Args:
-        all_components     : list of n_components arrays [n_channels, T]
-        y_scaled           : 1-D ndarray of scaled close prices [T]
-        close_channel_idx  : Which channel in each component is the close price
-                             (used only for documentation; TCN sees all channels)
-        sequence_length    : Look-back window length
+        all_components: List of n_components arrays each of shape [n_channels, T].
+        y_scaled: 1-D array of scaled close prices of length T.
+        close_channel_idx: Index of the close-price channel within each component.
+        sequence_length: Look-back window length in timesteps.
 
     Returns:
-        (X_seq, y_seq) : ndarrays [N, n_components, n_channels, seq_len] and [N]
+        A tuple (X_seq, y_seq) where X_seq has shape
+        [N, n_components, n_channels, sequence_length] and y_seq has shape [N],
+        with N = T - sequence_length - 1.
+
+    Raises:
+        ValueError: If there are not enough timesteps for the given sequence_length.
     """
     n_components = len(all_components)
     n_channels   = all_components[0].shape[0]
@@ -241,11 +211,7 @@ def _make_memd_sequences(
 
     return X_seq, y_seq
 
-
-# =============================================================================
-# 4 — Data preparation
-# =============================================================================
-
+# 4. Data preparation
 def prepare_data_memd(
     df: pd.DataFrame,
     target_col: str     = "BTC/USD",
@@ -255,34 +221,34 @@ def prepare_data_memd(
     max_imfs: int        = 12,
     max_sift: int        = 50,
     sd_threshold: float  = 0.2,
-) -> dict | None:
-    """
-    Full data pipeline for MEMD-TCN:
-      1. Auto-detect input (OHLCV) channels
-      2. Temporal split
-      3. Fit MinMaxScaler on training split; transform all three splits
-      4. Run MEMD on each split independently (no future leakage)
-      5. Build MEMDSequenceDatasets
+) -> dict | None: # (Anthropic, 2026)
+    """Run the full data preparation pipeline for MEMD-TCN training.
+
+    Auto-detects OHLCV input channels, performs a temporal split, fits a
+    MinMaxScaler on the training split only, runs MEMD independently on each
+    split, and builds MEMDSequenceDatasets ready for DataLoader consumption.
 
     Args:
-        df              : Raw time-series DataFrame
-        target_col      : Close-price column name
-        sequence_length : Look-back window size
-        split_ratios    : (train_frac, val_frac, test_frac)
-        K               : MEMD direction vectors (Rehman & Mandic eq. 3.2)
-        max_imfs        : Maximum IMF components per decomposition
-        max_sift        : Max sifting iterations (Huang et al. 2003)
-        sd_threshold    : Sifting stopping criterion
+        df: Raw time-series DataFrame.
+        target_col: Name of the close-price column.
+        sequence_length: Look-back window size in timesteps.
+        split_ratios: A tuple (train_frac, val_frac, test_frac) whose values
+          must sum to no more than 1.0.
+        K: Number of Hammersley direction vectors for MEMD.
+        max_imfs: Maximum IMF components per decomposition.
+        max_sift: Maximum sifting iterations per IMF (Huang et al. 2003).
+        sd_threshold: Sifting stopping criterion.
 
     Returns:
-        dict with datasets, scalers, n_components, n_channels, close_channel_idx
-        Returns None on error.
+        A dict with keys train_dataset, val_dataset, test_dataset,
+        target_scaler, original_test_actuals, n_components, n_channels, and
+        close_channel_idx. Returns None if the input DataFrame is empty.
     """
     if df.empty:
         print("[ERROR] Input DataFrame is empty.")
         return None
 
-    # ── Detect input channels ─────────────────────────────────────────
+    # Detect input channels
     input_columns = _detect_input_columns(df, target_col)
     n_channels    = len(input_columns)
     # Index of the close/target channel within the ordered column list
@@ -301,11 +267,11 @@ def prepare_data_memd(
     # Drop rows with any NaN in the used columns
     df = df[input_columns].dropna().copy()
 
-    # ── Temporal split ────────────────────────────────────────────────
+    # Temporal split
     train_df, val_df, test_df = temporal_train_val_test_split(df, split_ratios)
     print(f"Splits — train: {len(train_df)}  val: {len(val_df)}  test: {len(test_df)}")
 
-    # ── Fit scaler on training data only  →  transform all splits ────
+    # Fit scaler on training data only  →  transform all splits
     from sklearn.preprocessing import MinMaxScaler
     scaler = MinMaxScaler(feature_range=(0, 1))
     scaler.fit(train_df.values)
@@ -326,7 +292,7 @@ def prepare_data_memd(
     # Original (unscaled) test actuals for evaluation
     original_test_actuals = test_df[target_col].values
 
-    # ── MEMD decomposition (channels-first: [n_channels, T]) ─────────
+    # MEMD decomposition (channels-first: [n_channels, T])
     print("\nRunning MEMD decomposition on each split …")
     print("  (This may take several minutes for K=512 directions)")
 
@@ -339,7 +305,7 @@ def prepare_data_memd(
     components_val   = _decompose_split(val_scaled,   "val")
     components_test  = _decompose_split(test_scaled,  "test")
 
-    # ── Build sliding-window datasets ─────────────────────────────────
+    # Build sliding-window datasets
     print("\nBuilding IMF sequences …")
     seq_progress = tqdm(total=3, desc="Sequence preparation")
 
@@ -375,11 +341,7 @@ def prepare_data_memd(
         "close_channel_idx":     close_channel_idx,
     }
 
-
-# =============================================================================
-# 5 — Model setup
-# =============================================================================
-
+# 5. Model setup
 def setup_model_memd(
     n_channels: int,
     n_components: int,
@@ -389,25 +351,21 @@ def setup_model_memd(
     K: int             = 512,
     max_imfs: int      = 12,
     learning_rate: float = 1e-4,
-) -> dict:
-    """
-    Instantiate MEMD_TCN_Model, Adam optimiser, and ReduceLROnPlateau scheduler.
-
-    The model is built with n_components TCN blocks (max_imfs IMF slots + 1
-    residual) so that each pre-computed component has a dedicated TCN.
+) -> dict: # (Anthropic, 2026)
+    """Instantiate MEMD_TCN_Model, Adam optimiser, and ReduceLROnPlateau scheduler.
 
     Args:
-        n_channels    : Number of OHLCV-like input channels
-        n_components  : Total components = max_imfs + 1 (incl. residual)
-        kernel_size   : TCN causal-conv kernel size (Yao et al.: k=2)
-        dilations     : TCN dilation sequence  (Yao et al.: [1, 2, 4])
-        dropout       : TCN dropout rate
-        K             : Number of MEMD direction vectors (stored in model)
-        max_imfs      : Maximum IMFs (stored in model)
-        learning_rate : Initial Adam learning rate
+        n_channels: Number of OHLCV-like input channels.
+        n_components: Total number of TCN blocks, equal to max_imfs + 1.
+        kernel_size: Causal-conv kernel size for each TCN block.
+        dilations: Dilation sequence for TCN layers.
+        dropout: TCN dropout rate.
+        K: Number of MEMD direction vectors, stored in the model for reference.
+        max_imfs: Maximum IMFs, used to size the TCN block list.
+        learning_rate: Initial learning rate for the Adam optimiser.
 
     Returns:
-        dict with model, optimizer, scheduler, device.
+        A dict with keys model, optimizer, scheduler, device, and n_components.
     """
     if dilations is None:
         dilations = [1, 2, 4]
@@ -451,11 +409,7 @@ def setup_model_memd(
         "n_components": n_components,
     }
 
-
-# =============================================================================
-# 6 — Training loop
-# =============================================================================
-
+# 6. Training loop
 def train_model_memd(
     model,
     train_loader,
@@ -467,39 +421,36 @@ def train_model_memd(
     epochs: int             = 100,
     early_stopping_patience: int = 20,
     max_grad_norm: float    = 1.0,
-):
-    """
-    Joint MEMD-TCN training loop.
+): # (Anthropic, 2026)
+    """Train MEMD-TCN jointly across all IMF and residual TCN blocks.
 
-    For each batch the pipeline is:
-      1. Forward each IMF component through its dedicated TCN  →  scalar [B]
-      2. Reconstruct final prediction by summing all components  →  [B]
-      3. MSE loss against scaled close price target
-      4. Backward + gradient clip + Adam step
-
-    All TCN blocks share one Adam optimiser (joint optimisation).
+    Each batch forwards every component through its dedicated TCN, sums the
+    outputs to reconstruct the final prediction, and minimises MSE against
+    the scaled close-price target. Applies gradient clipping and early
+    stopping based on validation loss.
 
     Args:
-        model                   : MEMD_TCN_Model
-        train_loader            : DataLoader for MEMDSequenceDataset
-        val_loader              : DataLoader for MEMDSequenceDataset
-        optimizer               : Adam optimiser
-        scheduler               : ReduceLROnPlateau scheduler
-        device                  : cuda / cpu
-        n_components            : Number of IMF + residual components
-        epochs                  : Maximum training epochs
-        early_stopping_patience : Epochs without val-loss improvement before stop
-        max_grad_norm           : Gradient clipping norm
+        model: MEMD_TCN_Model instance to train.
+        train_loader: DataLoader yielding (imf_seqs, target) batches for training.
+        val_loader: DataLoader yielding (imf_seqs, target) batches for validation.
+        optimizer: Configured Adam optimiser covering all TCN block parameters.
+        scheduler: ReduceLROnPlateau scheduler stepping on validation loss.
+        device: torch.device for tensor placement (cuda or cpu).
+        n_components: Number of IMF + residual components per sample.
+        epochs: Maximum number of training epochs.
+        early_stopping_patience: Number of epochs without validation loss
+          improvement before training is halted early.
+        max_grad_norm: Maximum norm for gradient clipping.
 
     Returns:
-        model : Best model (restored from checkpoint)
+        The trained model with weights restored from the best validation checkpoint.
     """
     best_val_loss     = float("inf")
     epochs_no_improve = 0
     best_model_state  = None
 
     for epoch in range(epochs):
-        # ── Training phase ────────────────────────────────────────────
+        # Training phase
         model.train()
         train_loss = 0.0
         train_mae  = 0.0
@@ -538,7 +489,7 @@ def train_model_memd(
         train_loss /= len(train_loader)
         train_mae  /= len(train_loader)
 
-        # ── Validation phase ──────────────────────────────────────────
+        # Validation phase
         model.eval()
         val_loss = 0.0
         val_mae  = 0.0
@@ -563,7 +514,7 @@ def train_model_memd(
             f"val_loss={val_loss:.5f}  val_mae={val_mae:.5f}"
         )
 
-        # ── Early stopping ────────────────────────────────────────────
+        # Early stopping 
         if val_loss < best_val_loss:
             best_val_loss     = val_loss
             epochs_no_improve = 0
@@ -582,42 +533,40 @@ def train_model_memd(
 
     return model
 
+# 7. CLI argument parser
+def parse_args() -> argparse.Namespace: # (Anthropic, 2026)
+    """Parse CLI arguments supplied by the TrainingConfigureWindow (MEMD-TCN panel).
 
-# =============================================================================
-# 7 — CLI argument parser
-# =============================================================================
-
-def parse_args() -> argparse.Namespace:
-    """
-    Parse CLI arguments supplied by the TrainingConfigureWindow (MEMD-TCN panel).
-    Argument names match exactly what _build_cli_args() passes for MEMD scripts.
+    Argument names match exactly those passed by _build_cli_args() in the
+    interface for MEMD-TCN scripts.
 
     Returns:
-        Parsed argparse.Namespace with all MEMD-TCN training hyperparameters.
+        A parsed argparse.Namespace containing all MEMD-TCN training
+        hyperparameters.
     """
     parser = argparse.ArgumentParser(
-        description="Train the MEMD-TCN model (Yao et al. 2023)."
+        description="Train the MEMD-TCN model."
     )
-    # ── Dataset ───────────────────────────────────────────────────────
+    # Dataset 
     parser.add_argument("--dataset",    type=str, default=None,
                         help="Absolute path to the input dataset CSV.")
     parser.add_argument("--target_col", type=str, default="BTC/USD",
                         help="Column name of the closing price target.")
-    # ── Sequence ──────────────────────────────────────────────────────
+    # Sequence 
     parser.add_argument("--sequence_length", type=int, default=30,
                         help="Look-back window (lag) length in timesteps.")
-    # ── Training loop ─────────────────────────────────────────────────
+    # Training loop 
     parser.add_argument("--epochs",      type=int,   default=100,
                         help="Training epochs (applied jointly across all TCNs).")
     parser.add_argument("--batch_size",  type=int,   default=16)
     parser.add_argument("--learning_rate", type=float, default=1e-4)
-    # ── TCN architecture ──────────────────────────────────────────────
+    # TCN architecture 
     parser.add_argument("--kernel_size", type=int,   default=2,
                         help="Causal conv kernel size (Yao et al.: k=2).")
     parser.add_argument("--dilations",   type=str,   default="1,2,4",
                         help="Comma-separated dilation factors (Yao et al.: 1,2,4).")
     parser.add_argument("--dropout",     type=float, default=0.2)
-    # ── MEMD parameters ───────────────────────────────────────────────
+    # MEMD parameters
     parser.add_argument("--K",            type=int,   default=512,
                         help="Number of Hammersley direction vectors for MEMD.")
     parser.add_argument("--max_imfs",     type=int,   default=12,
@@ -626,7 +575,7 @@ def parse_args() -> argparse.Namespace:
                         help="Maximum sifting iterations per IMF.")
     parser.add_argument("--sd_threshold", type=float, default=0.2,
                         help="Huang et al. (2003) SD sifting stopping criterion.")
-    # ── Output ────────────────────────────────────────────────────────
+    # Output
     parser.add_argument(
         "--save_dir",
         type=str,
@@ -635,20 +584,17 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
-
-# =============================================================================
-# 8 — Orchestration
-# =============================================================================
-
-def train_and_return_model(args: argparse.Namespace = None):
-    """
-    Full MEMD-TCN pipeline: load → prepare → decompose → build → train → save.
+# 8. Orchestration
+def train_and_return_model(args: argparse.Namespace = None):  # (Anthropic, 2026)
+    """Run the full MEMD-TCN pipeline: load, prepare, decompose, build, train, and save.
 
     Args:
-        args : Parsed CLI args (uses parse_args() if None)
+        args: Parsed argparse.Namespace of hyperparameters. If None, arguments
+          are read from the command line via parse_args().
 
     Returns:
-        (model, test_loader, target_scaler, device)  or  None on failure
+        A tuple (model, test_loader, target_scaler, device) on success, or
+        None if data preparation fails.
     """
     if args is None:
         args = parse_args()
@@ -656,7 +602,7 @@ def train_and_return_model(args: argparse.Namespace = None):
     # Parse dilations string  →  list[int]
     dilations = [int(d.strip()) for d in args.dilations.split(",")]
 
-    # ── Resolve dataset path ──────────────────────────────────────────
+    # Resolve dataset path
     if args.dataset:
         data_path = Path(args.dataset)
     else:
@@ -668,7 +614,7 @@ def train_and_return_model(args: argparse.Namespace = None):
         )
 
     print(f"\n{'='*60}")
-    print(f"  MEMD-TCN Training  —  Yao et al. (2023)")
+    print(f"  MEMD-TCN Training")
     print(f"{'='*60}")
     print(f"  Dataset          : {data_path.name}")
     print(f"  Target column    : {args.target_col}")
@@ -685,7 +631,7 @@ def train_and_return_model(args: argparse.Namespace = None):
     df = pd.read_csv(data_path)
     print(f"Loaded data shape: {df.shape}")
 
-    # ── Prepare data ──────────────────────────────────────────────────
+    # Prepare data
     print("\n--- Preparing & decomposing data ---")
     prepared = prepare_data_memd(
         df,
@@ -710,7 +656,7 @@ def train_and_return_model(args: argparse.Namespace = None):
         batch_size=args.batch_size,
     )
 
-    # ── Set up model ──────────────────────────────────────────────────
+    # Set up model
     print("\n--- Setting up MEMD-TCN model ---")
     model_setup = setup_model_memd(
         n_channels=n_channels,
@@ -727,7 +673,7 @@ def train_and_return_model(args: argparse.Namespace = None):
     optimizer = model_setup["optimizer"]
     scheduler = model_setup["scheduler"]
 
-    # ── Train ─────────────────────────────────────────────────────────
+    # Train 
     print("\n--- Training ---")
     train_model_memd(
         model,
@@ -743,7 +689,7 @@ def train_and_return_model(args: argparse.Namespace = None):
 
     print("\nTraining complete.")
 
-    # ── Save ──────────────────────────────────────────────────────────
+    # Save
     save_dir = Path(args.save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -786,10 +732,6 @@ def train_and_return_model(args: argparse.Namespace = None):
 
     return model, loaders["test_loader"], prepared["target_scaler"], device
 
-
-# =============================================================================
 # Entry point
-# =============================================================================
-
 if __name__ == "__main__":
     train_and_return_model()

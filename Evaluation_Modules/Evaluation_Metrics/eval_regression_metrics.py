@@ -1,31 +1,24 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-eval_regression_metrics.py
----------------------------
-Evaluation script — Regression Metrics (MAE & RMSE).
-
-Loads a trained model checkpoint and a dataset CSV, runs inference on the
-test split, then displays a bar chart of regression error metrics:
-  • MAE  — Mean Absolute Error  (lower is better)
-  • RMSE — Root Mean Squared Error  (lower is better)
-
-Usage (standalone):
-    python eval_regression_metrics.py --model <path/to/model.pt> --dataset <path/to/data.csv>
-
-Usage (via Model Designer):
-    Launched automatically with --model and --dataset flags by the
-    "Model Evaluation Method" stage in Model Designer.
+The eval_regression_metrics.py script evaluates Regression Metrics (MAE & RMSE) and 
+loads a trained model checkpoint and a dataset CSV, runs inference on the test split, then 
+displays a bar chart of regression error metrics:
+    MAE  — Mean Absolute Error  (lower is better)
+    RMSE — Root Mean Squared Error  (lower is better)
 """
 
 import argparse
 import sys
 from pathlib import Path
 
-# ── Path setup ───────────────────────────────────────────────────────────────
+# Path setup
 _here = Path(__file__).resolve().parent
 if str(_here) not in sys.path:
     sys.path.insert(0, str(_here))
 
-# ── Project imports ───────────────────────────────────────────────────────────
+# Project imports 
 from eval_utils import load_model_and_run_inference
 
 import numpy as np
@@ -34,16 +27,13 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-
-# =============================================================================
 # CLI
-# =============================================================================
-
-def parse_args() -> argparse.Namespace:
+def parse_args() -> argparse.Namespace: # (Anthropic, 2026)
     """Parse CLI arguments for the regression metrics evaluation script.
 
     Returns:
-        argparse.Namespace with ``--model`` and ``--dataset`` paths.
+        An argparse.Namespace containing ``model`` (str path to the .pt
+        checkpoint) and ``dataset`` (str path to the .csv file).
     """
     p = argparse.ArgumentParser(
         description="Evaluate regression error metrics (MAE, RMSE) for a trained model."
@@ -62,16 +52,18 @@ def parse_args() -> argparse.Namespace:
     )
     return p.parse_args()
 
-
-# =============================================================================
 # Main
-# =============================================================================
+def main() -> None: # (Anthropic, 2026)
+    """Load a checkpoint, run inference on the test split, and display regression metrics.
 
-def main() -> None:
-    """Load checkpoint, run inference on the test split, and display regression metric bars."""
+    Delegates data loading and inference to ``load_model_and_run_inference``,
+    computes MAE and RMSE on the returned inverse-scaled predictions and
+    actuals, prints a summary to stdout, and renders a labelled bar chart
+    via Matplotlib.
+    """
     args = parse_args()
 
-    # ── Load model and run inference ─────────────────────────────────────────
+    # Load model and run inference 
     result = load_model_and_run_inference(args.model, args.dataset)
 
     predictions  = result["predictions"]
@@ -79,11 +71,11 @@ def main() -> None:
     model_name   = result["model_name"]
     dataset_name = result["dataset_name"]
 
-    # ── Regression metrics ────────────────────────────────────────────────────
+    # Regression metrics 
     mae  = mean_absolute_error(actuals, predictions)
     rmse = np.sqrt(mean_squared_error(actuals, predictions))
 
-    # ── Print metrics ─────────────────────────────────────────────────────────
+    # Print metrics 
     print(f"\n{'=' * 55}")
     print(f"  Regression Metrics")
     print(f"  Model  : {model_name}")
@@ -93,7 +85,7 @@ def main() -> None:
     print(f"  RMSE  : {rmse:.4f}")
     print(f"{'=' * 55}\n")
 
-    # ── Plot ──────────────────────────────────────────────────────────────────
+    # Plot 
     labels  = ["MAE", "RMSE"]
     values  = [mae, rmse]
     colours = ["#2ecc71", "#27ae60"]   # greens — error metrics
@@ -130,7 +122,6 @@ def main() -> None:
     )
     plt.tight_layout(rect=[0, 0.07, 1, 1])
     plt.show()
-
 
 if __name__ == "__main__":
     main()

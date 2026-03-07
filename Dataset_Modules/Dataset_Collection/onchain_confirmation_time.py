@@ -1,16 +1,8 @@
-﻿"""
-col_onchain_confirmation_time.py
----------------------------------
-Single-column dataset feature.
+﻿# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
 
-Column : Onchain Median Confirmation Time (min)
-Source : Blockchain.info API – charts/median-confirmation-time
-         (median time for a transaction to be included in a block, in minutes)
-Output : Dataset_Modules/dataset_output/2015-2025_onchain_confirmation_time.csv
-
-Run standalone:
-    python col_onchain_confirmation_time.py
-Or select via Model Designer → Dataset Collection Method → Configure.
+"""
+col_onchain_confirmation_time.py, creates a single-column dataset feature dataset for the median Bitcoin transaction confirmation time in minutes, sourced from the Blockchain.info API.
 """
 
 import os
@@ -25,25 +17,26 @@ OUTPUT_FILENAME = "onchain_confirmation_time.csv"
 COLUMN_NAME     = "Onchain Median Confirmation Time (min)"
 ENDPOINT        = "charts/median-confirmation-time"
 
-
-def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, freq: str = "1d") -> pd.DataFrame:
+def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, freq: str = "1d") -> pd.DataFrame: # (Anthropic, 2026)
     """Fetch the median Bitcoin transaction confirmation time from the Blockchain.info API.
 
+    Calls fetch_blockchain_metric with the median-confirmation-time endpoint
+    and re-indexes the result onto date_range before returning.
+
     Args:
-        start_date: ISO date string (``YYYY-MM-DD``) for the request start.
-        end_date: ISO date string (``YYYY-MM-DD``) for the request end.
+        start_date: ISO date string (YYYY-MM-DD) for the request start.
+        end_date: ISO date string (YYYY-MM-DD) for the request end.
         date_range: pandas DatetimeIndex to re-index the result onto.
-        freq: Data frequency string.  Must be a member of
-            ``BLOCKCHAIN_SUPPORTED_FREQS`` (``"1d"``, ``"5d"``,
-            ``"1wk"``, ``"1mo"``, ``"3mo"``).
+        freq: Data frequency string. Must be one of the values in
+          BLOCKCHAIN_SUPPORTED_FREQS ("1d", "5d", "1wk", "1mo", "3mo").
 
     Returns:
-        Single-column DataFrame indexed by *date_range* with column
-        ``Onchain Median Confirmation Time (min)``.
+        A single-column DataFrame indexed by date_range with the column
+        "Onchain Median Confirmation Time (min)".
 
     Raises:
-        UnsupportedIntervalError: If *freq* requests sub-daily granularity
-            that the Blockchain.info API does not support.
+        UnsupportedIntervalError: If freq is not in BLOCKCHAIN_SUPPORTED_FREQS,
+          indicating sub-daily granularity that the API does not support.
     """
     if freq.lower() not in BLOCKCHAIN_SUPPORTED_FREQS:
         raise UnsupportedIntervalError(
@@ -57,9 +50,13 @@ def collect(start_date: str, end_date: str, date_range: pd.DatetimeIndex, freq: 
     out[COLUMN_NAME] = fetch_blockchain_metric(ENDPOINT, start_date, end_date, date_range)
     return out
 
+def main() -> None: # (Anthropic, 2026)
+    """Parse CLI arguments, collect median confirmation time data, and save the result to CSV.
 
-def main() -> None:
-    """Parse CLI arguments, collect median confirmation time data, and save the output CSV."""
+    Reads --start, --end, and --freq from the command line, calls collect(),
+    and writes the output to dataset_output/onchain_confirmation_time.csv.
+    Prints a confirmation message on success or an error message on failure.
+    """
     import argparse
     parser = argparse.ArgumentParser(description=OUTPUT_FILENAME)
     parser.add_argument("--start", default=None,

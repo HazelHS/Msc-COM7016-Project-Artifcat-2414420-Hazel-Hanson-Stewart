@@ -1,7 +1,8 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-__blockchain_utils.py
----------------------
-Shared helper for fetching a single time-series chart from the
+blockchain_utils.py is a shared helper for fetching a single time-series chart from the
 Blockchain.info public API and aligning it to a daily DatetimeIndex.
 Hidden from the UI discover_scripts list because it starts with __.
 """
@@ -12,28 +13,28 @@ import pandas as pd
 
 BLOCKCHAIN_API_BASE = "https://api.blockchain.info"
 
-
 def fetch_blockchain_metric(
     metric_endpoint: str,
     start_date: str,
     end_date: str,
     date_range: pd.DatetimeIndex,
-) -> pd.Series:
+) -> pd.Series: # (Anthropic, 2026)
     """Fetch a time-series chart from the Blockchain.info public API.
 
-    Retrieves *metric_endpoint* (e.g. ``'charts/hash-rate'``) and
-    returns the values re-indexed to *date_range*.
+    Requests the given endpoint, parses the JSON response, and re-indexes
+    the result onto date_range. Returns a NaN-filled Series if the request
+    fails, the response status is not 200, or the payload contains no values.
 
     Args:
         metric_endpoint: Blockchain.info chart endpoint path
-            (e.g. ``'charts/hash-rate'``).
-        start_date: ISO date string ``'YYYY-MM-DD'`` for the request start.
-        end_date: ISO date string ``'YYYY-MM-DD'`` for the request end.
+          (e.g. "charts/hash-rate").
+        start_date: ISO date string (YYYY-MM-DD) for the request start.
+        end_date: ISO date string (YYYY-MM-DD) for the request end.
         date_range: pandas DatetimeIndex to re-index the result onto.
 
     Returns:
-        Series of float64 values aligned to *date_range*.  Returns a
-        NaN-filled Series on any network or parsing error.
+        A float64 Series aligned to date_range. Entries with no
+        corresponding API data are NaN.
     """
     start_ts = int(datetime.strptime(start_date, "%Y-%m-%d").timestamp())
     end_ts   = int(datetime.strptime(end_date,   "%Y-%m-%d").timestamp())

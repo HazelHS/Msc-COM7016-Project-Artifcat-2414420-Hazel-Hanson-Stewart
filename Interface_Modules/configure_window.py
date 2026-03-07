@@ -1,12 +1,8 @@
-"""
-configure_window.py
--------------------
-ConfigureWindow – modal checklist for multi-select pipeline stages.
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
 
-Depending on the stage label the window also shows:
-  - Date / frequency panel   (Dataset Collection Method)
-  - CSV dataset picker        (Dataset Processing Method)
-  - Trained-model + CSV picker (Model Evaluation Method)
+"""
+configure_window.py is the modal checklist for multi-select pipeline sections.
 """
 
 import tkinter as tk
@@ -22,27 +18,34 @@ from .constants import (
 )
 from .utils import discover_scripts, discover_csvs, discover_models
 
+class ConfigureWindow: # (Anthropic, 2026)
+    """Modal Toplevel presenting a scrollable checklist of .py scripts.
 
-class ConfigureWindow:
+    Each script found in the stage's directory gets a checkbox. The caller
+    reads ``stage["selected"]`` (a ``set`` of filenames) after the window
+    closes. Depending on ``stage["label_text"]``, one or more auxiliary
+    panels are shown below the checklist:
+
+    - Date Range & Frequency – for Dataset Collection stages.
+    - Dataset CSV picker      – for Dataset Processing stages.
+    - Model + CSV pickers     – for Model Evaluation stages.
     """
-    Toplevel window that lists all .py scripts in a directory with a
-    checkbox next to each one.  The caller reads back ``stage["selected"]``
-    (a set of filenames) after the window is closed.
 
-    For Dataset Collection stages an extra panel is shown at the bottom
-    with start/end date inputs and a frequency drop-down.
-    """
+    def __init__(self, parent: tk.Widget, stage: dict) -> None: # (Anthropic, 2026)
+        """Initialise and display the configure window for a pipeline stage.
 
-    def __init__(self, parent: tk.Widget, stage: dict) -> None:
-        """Open the configure window for a pipeline stage.
-
-        Reads ``stage['label_text']`` to determine which optional panels
-        (date range, CSV picker, eval picker) to display.
+        Seeds default values into *stage* on first open so callers always have
+        a valid configuration even if the window is dismissed immediately.
+        Determines which auxiliary panels to display based on
+        ``stage["label_text"]``.
 
         Args:
-            parent: Parent widget that owns this ``Toplevel``.
-            stage: Mutable stage dict from ``MainWindow._stages``.  Updated
-                in-place when the user clicks OK.
+            parent: Parent widget that owns this Toplevel.
+            stage: Mutable stage dict from ``MainWindow._stages``. Modified
+                in-place when the user confirms with OK; keys written include
+                ``"selected"``, and conditionally ``"start_date"``,
+                ``"end_date"``, ``"freq"``, ``"dataset_csv"``, and
+                ``"model_file"``.
         """
         self._stage = stage
         self._show_date_config:    bool = stage.get("label_text", "") in DATE_CONFIG_STAGES
@@ -82,10 +85,14 @@ class ConfigureWindow:
 
         self._build()
 
-    # ── Build ──────────────────────────────────────────────────────────
+    # Build 
+    def _build(self) -> None: # (Anthropic, 2026)
+        """Build the full widget tree for the configure window.
 
-    def _build(self) -> None:
-        """Assemble all child widgets and optional stage-specific panels."""
+        Creates the scrollable script checklist, appends any stage-specific
+        auxiliary panels (date range, CSV picker, or eval picker), and adds
+        the Select All / Deselect All / Refresh / OK button row.
+        """
         outer = ttk.Frame(self._win, padding=10)
         outer.pack(fill="both", expand=True)
 
@@ -110,7 +117,7 @@ class ConfigureWindow:
         self._canvas = canvas
         self._populate_checks()
 
-        # ── Stage-specific extra panels ────────────────────────────────
+        # Stage-specific extra panels 
         if self._show_date_config:
             self._build_date_panel(outer)
         if self._show_dataset_select:
@@ -127,10 +134,17 @@ class ConfigureWindow:
         ttk.Button(btn_row, text="↺ Refresh",    command=self._refresh,      width=10).pack(side="left", padx=(4, 0))
         ttk.Button(btn_row, text="OK",           command=self._ok,           width=8).pack(side="right")
 
-    # ── Extra panels ───────────────────────────────────────────────────
+    # Extra panels
 
-    def _build_date_panel(self, parent: ttk.Frame) -> None:
-        """Add start/end date entries and a frequency combobox."""
+    def _build_date_panel(self, parent: ttk.Frame) -> None: # (Anthropic, 2026)
+        """Append the date-range and frequency panel to *parent*.
+
+        Adds labelled Entry widgets for start and end dates and a read-only
+        Combobox for the data frequency, seeded from the current stage values.
+
+        Args:
+            parent: Frame into which the LabelFrame is packed.
+        """
         date_frame = ttk.LabelFrame(parent, text="Date Range & Frequency", padding=(8, 6))
         date_frame.pack(fill="x", pady=(0, 6))
         date_frame.columnconfigure(1, weight=1)
@@ -164,8 +178,16 @@ class ConfigureWindow:
             width=14,
         ).grid(row=1, column=1, sticky="w", pady=3)
 
-    def _build_csv_panel(self, parent: ttk.Frame) -> None:
-        """Add a CSV dataset picker for Dataset Processing stages."""
+    def _build_csv_panel(self, parent: ttk.Frame) -> None: # (Anthropic, 2026)
+        """Append the dataset CSV picker panel to *parent*.
+
+        Adds a read-only Combobox populated by ``discover_csvs`` and a
+        refresh button. The selected path is committed to
+        ``stage["dataset_csv"]`` when the user clicks OK.
+
+        Args:
+            parent: Frame into which the LabelFrame is packed.
+        """
         csv_frame = ttk.LabelFrame(
             parent,
             text="Dataset CSV (passed to scripts via --dataset)",
@@ -187,9 +209,17 @@ class ConfigureWindow:
         ).grid(row=0, column=2, padx=(4, 0), pady=3)
         self._refresh_csvs()
 
-    def _build_eval_panel(self, parent: ttk.Frame) -> None:
-        """Add a trained-model picker and a dataset CSV picker for the
-        Model Evaluation Method stage."""
+    def _build_eval_panel(self, parent: ttk.Frame) -> None: # (Anthropic, 2026)
+        """Append the trained-model and dataset CSV picker panel to *parent*.
+
+        Adds two read-only Comboboxes: one for a trained model file and one
+        for a dataset CSV, each with a refresh button. Values are committed
+        to ``stage["model_file"]`` and ``stage["dataset_csv"]`` when the
+        user clicks OK.
+
+        Args:
+            parent: Frame into which the LabelFrame is packed.
+        """
         eval_frame = ttk.LabelFrame(
             parent,
             text="Evaluation Inputs  (passed to scripts via --model and --dataset)",
@@ -227,10 +257,14 @@ class ConfigureWindow:
         self._refresh_models()
         self._refresh_eval_csvs()
 
-    # ── Refresh helpers ────────────────────────────────────────────────
+    # Refresh helpers
 
-    def _refresh_csvs(self) -> None:
-        """Repopulate the CSV combobox from the dataset_output folder."""
+    def _refresh_csvs(self) -> None: # (Anthropic, 2026)
+        """Repopulate the Dataset Processing CSV combobox from disk.
+
+        Resets the selection to the first available item if the current value
+        is no longer present, or clears it if no CSVs are found.
+        """
         csvs = discover_csvs(DATASET_OUTPUT_DIR)
         if hasattr(self, "_csv_combo") and self._csv_combo is not None:
             self._csv_combo["values"] = csvs
@@ -238,8 +272,12 @@ class ConfigureWindow:
             if current not in csvs:
                 self._csv_var.set(csvs[0] if csvs else "")
 
-    def _refresh_models(self) -> None:
-        """Repopulate the trained-model combobox."""
+    def _refresh_models(self) -> None: # (Anthropic, 2026)
+        """Repopulate the trained-model combobox from disk.
+
+        Resets the selection to the first available item if the current value
+        is no longer present, or clears it if no models are found.
+        """
         models = discover_models(TRAINED_MODEL_DIR)
         if hasattr(self, "_eval_model_combo") and self._eval_model_combo is not None:
             self._eval_model_combo["values"] = models
@@ -247,8 +285,12 @@ class ConfigureWindow:
             if current not in models:
                 self._eval_model_var.set(models[0] if models else "")
 
-    def _refresh_eval_csvs(self) -> None:
-        """Repopulate the eval dataset CSV combobox."""
+    def _refresh_eval_csvs(self) -> None: # (Anthropic, 2026)
+        """Repopulate the evaluation dataset CSV combobox from disk.
+
+        Resets the selection to the first available item if the current value
+        is no longer present, or clears it if no CSVs are found.
+        """
         csvs = discover_csvs(DATASET_OUTPUT_DIR)
         if hasattr(self, "_eval_csv_combo") and self._eval_csv_combo is not None:
             self._eval_csv_combo["values"] = csvs
@@ -256,10 +298,16 @@ class ConfigureWindow:
             if current not in csvs:
                 self._eval_csv_var.set(csvs[0] if csvs else "")
 
-    # ── Checklist ──────────────────────────────────────────────────────
+    # Checklist
 
-    def _populate_checks(self) -> None:
-        """Destroy existing checkboxes and rebuild from directory listing."""
+    def _populate_checks(self) -> None: # (Anthropic, 2026)
+        """Rebuild the script checklist by re-scanning the stage directory.
+
+        Clears existing checkboxes and creates one Checkbutton per ``.py``
+        script found in ``stage["dir"]``, pre-ticked for any script already
+        in ``stage["selected"]``. Shows a placeholder label when no scripts
+        are found.
+        """
         for widget in self._inner.winfo_children():
             widget.destroy()
         self._check_vars.clear()
@@ -285,24 +333,32 @@ class ConfigureWindow:
                 offvalue=False,
             ).pack(anchor="w", padx=6, pady=1)
 
-    # ── Actions ────────────────────────────────────────────────────────
-
-    def _select_all(self) -> None:
-        """Tick all script checkboxes."""
+    # Actions 
+    def _select_all(self) -> None: # (Anthropic, 2026)
+        """Check all script checkboxes."""
         for var in self._check_vars.values():
             var.set(True)
 
-    def _deselect_all(self) -> None:
-        """Clear all script checkboxes."""
+    def _deselect_all(self) -> None: # (Anthropic, 2026)
+        """Uncheck all script checkboxes."""
         for var in self._check_vars.values():
             var.set(False)
 
-    def _refresh(self) -> None:
-        """Repopulate the checklist from the script directory."""
+    def _refresh(self) -> None: # (Anthropic, 2026)
+        """Re-scan the stage directory and rebuild the script checklist."""
         self._populate_checks()
 
-    def _ok(self) -> None:
-        """Commit checked scripts and optional date/freq/csv back to the stage."""
+    def _ok(self) -> None: # (Anthropic, 2026)
+        """Commit all selections to the stage dict and close the window.
+
+        Writes the set of checked script filenames to ``stage["selected"]``
+        and updates ``stage["status_var"]`` with a human-readable summary.
+        Also writes ``stage["start_date"]``, ``stage["end_date"]``, and
+        ``stage["freq"]`` when the date panel is visible;
+        ``stage["dataset_csv"]`` when the CSV picker is visible; and
+        ``stage["model_file"]`` and ``stage["dataset_csv"]`` when the eval
+        picker is visible.
+        """
         self._stage["selected"] = {
             name for name, var in self._check_vars.items() if var.get()
         }
@@ -320,6 +376,11 @@ class ConfigureWindow:
         self._stage["status_var"].set(self._status_text())
         self._win.destroy()
 
-    def _status_text(self) -> str:
+    def _status_text(self) -> str: # (Anthropic, 2026)
+        """Return a human-readable summary of the current script selection.
+
+        Returns:
+            A string of the form ``"N script(s) selected"``.
+        """
         n = len(self._stage["selected"])
         return f"{n} script{'s' if n != 1 else ''} selected"

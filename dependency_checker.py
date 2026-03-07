@@ -1,42 +1,32 @@
-"""Shared dependency bootstrap for all AI module scripts.
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
 
-This module is imported via ``from dependency_checker import *`` at the
-top of every model design, training, and evaluation script.  It performs
-two responsibilities:
+""" 
+Primarily used to make sure that the pytorch dependancy is correctly installed, working and can access the GPU.
+It is also imported in the MEMD-TCN and xLSTM-TS and model training scripts too, for the same reason.
 
-  1. Centralise all heavy third-party imports so they are resolved once
-     and star-exported to the calling module's global namespace.
-  2. Print GPU availability on import so every subprocess launched by the
-     Model Designer GUI shows the hardware context immediately.
-
-Typical usage example::
-
-    from dependency_checker import *   # pulls in torch, nn, pd, np …
 """
 
-# ── Deep learning framework ───────────────────────────────────────────────
+# Deep learning framework
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-
-# ── Data manipulation ────────────────────────────────────────────────────
 import pandas as pd
 import numpy as np
 
-# ── Machine learning utilities ────────────────────────────────────────────
+# Machine learning utilities
 from sklearn.preprocessing import MinMaxScaler
 
-# ── Standard library helpers ──────────────────────────────────────────────
+# Standard library helpers
 from collections import defaultdict
 from tqdm import tqdm        # progress-bar wrapper for training loops
 import os
 from pathlib import Path
 
-# ── GPU diagnostics printed once at import time ───────────────────────────
-# Lets every subprocess launched from the GUI show its compute device.
+# GPU diagnostics printed once at import time, lets every subprocess launched from the GUI show if it is using and recognising the GPU.
 print(f"CUDA available: {torch.cuda.is_available()}")
 if torch.cuda.is_available():
     print(f"CUDA device: {torch.cuda.get_device_name(0)}")

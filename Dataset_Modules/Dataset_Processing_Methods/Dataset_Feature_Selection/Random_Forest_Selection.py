@@ -1,19 +1,13 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
-Random_Forest_Selection.py
---------------------------
-Performs window-based permutation importance feature selection using a
+The Random_Forest_Selection.py script performs window-based permutation importance feature selection using a
 Random Forest regressor.  Optionally applies Bayesian hyperparameter
 tuning via BayesSearchCV.
 
 The 75th-percentile of mean importance is used as the selection threshold
 (top 25 % most important features).
-
-Usage (standalone):
-    python Random_Forest_Selection.py --dataset <path_to_csv> [--target <column>]
-        [--window-size 30] [--n-estimators 10] [--tune] [--n-iter 10]
-
-When launched from the Model Designer GUI the --dataset argument is
-populated automatically from the dropdown selection.
 """
 
 import argparse
@@ -41,39 +35,41 @@ except ImportError:
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-# ── Paths ──────────────────────────────────────────────────────────────────
+# Paths 
 SCRIPT_DIR  = Path(__file__).resolve().parent
 # Output saved alongside the source dataset (dataset_output folder)
 OUTPUT_DIR  = SCRIPT_DIR.parents[1] / "dataset_output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-
-# ── Helpers ────────────────────────────────────────────────────────────────
-
-def load_data(filepath: Path) -> pd.DataFrame:
+# Helpers 
+def load_data(filepath: Path) -> pd.DataFrame: # (Anthropic, 2026)
     """Load a CSV dataset from disk.
 
     Args:
-        filepath: Absolute path to the CSV file.  The first column is
-            used as the DatetimeIndex.
+        filepath: Absolute path to the CSV file. The first column is
+          used as the DatetimeIndex.
 
     Returns:
-        DataFrame with a DatetimeIndex and one column per feature.
+        A DataFrame with a DatetimeIndex and one column per feature.
     """
     return pd.read_csv(filepath, index_col=0, parse_dates=True)
 
-
 def plot_feature_importance(scores_df: pd.DataFrame, method_name: str,
-                             output_path: Path) -> None:
+                             output_path: Path) -> None: # (Anthropic, 2026)
     """Draw a horizontal bar chart of selected feature importance scores.
 
+    Filters ``scores_df`` to the selected features only, then renders an
+    interactive matplotlib bar chart with inline score labels. The chart is
+    displayed via ``plt.show()`` by the caller; this function does not save
+    to disk.
+
     Args:
-        scores_df: DataFrame with columns ``Feature``, ``Selected``, and either
-            ``Score`` or ``Importance``.
-        method_name: Human-readable name of the selection method used as the
-            chart title suffix.
-        output_path: Destination path for the saved figure (unused — chart is
-            displayed interactively).
+        scores_df: DataFrame with columns ``Feature``, ``Selected``, and
+          either ``Score`` or ``Importance``.
+        method_name: Human-readable label for the selection method, used
+          as the chart title suffix.
+        output_path: Intended destination path for the figure. Currently
+          unused — saving is left to the caller or the interactive toolbar.
     """
     selected = scores_df[scores_df["Selected"]].copy()
     score_col = "Score" if "Score" in selected.columns else "Importance"
@@ -99,23 +95,25 @@ def plot_feature_importance(scores_df: pd.DataFrame, method_name: str,
     plt.tight_layout()
     print("Selected-features chart ready.")
 
-
 def save_selected_features(df: pd.DataFrame, selected_features: list[str],
                             target: str, method_name: str,
-                            dataset_stem: str) -> Path:
+                            dataset_stem: str) -> Path: # (Anthropic, 2026)
     """Persist the selected feature subset as a CSV file.
 
+    Writes a CSV containing only the selected feature columns plus the target
+    column to ``OUTPUT_DIR/<dataset_stem>_<method_name>_selected.csv``.
+
     Args:
-        df: Full input DataFrame (before feature selection).
-        selected_features: List of selected feature column names.
+        df: Full input DataFrame before feature selection.
+        selected_features: List of feature column names to retain.
         target: Name of the target column to append to the output.
         method_name: Short label for the selection method (e.g.
-            ``"RandomForest"``).
-        dataset_stem: Stem of the input file name, used to construct
-            the output filename.
+          ``'RandomForest'``), used to construct the output filename.
+        dataset_stem: Stem of the input filename, used to construct
+          the output filename.
 
     Returns:
-        :class:`pathlib.Path` of the written CSV file.
+        The :class:`pathlib.Path` of the written CSV file.
     """
     final_cols = selected_features + [target]
     out_df = df[final_cols]
@@ -123,7 +121,6 @@ def save_selected_features(df: pd.DataFrame, selected_features: list[str],
     out_df.to_csv(out_path)
     print(f"[save_selected_features] Saved {out_df.shape} -> {out_path}")
     return out_path
-
 
 def random_forest_selection(
     df: pd.DataFrame,
@@ -133,37 +130,41 @@ def random_forest_selection(
     perform_tuning: bool = False,
     n_iterations: int = 10,
     n_jobs: int = -1,
-) -> tuple[list[str], pd.DataFrame]:
+) -> tuple[list[str], pd.DataFrame]: # (Anthropic, 2026)
     """Select features using window-based permutation importance with a Random Forest.
 
     Slides a rolling window over the time-series, fits a Random Forest
-    regressor on each window, and measures permutation importance per
-    feature.  The mean importance across all windows is computed and
-    features at or above the 75th percentile are retained (top 25%).
-    Optionally applies Bayesian hyperparameter tuning via ``BayesSearchCV``
-    before the importance sweep.
+    regressor on each window, and measures permutation importance per feature.
+    The mean importance across all windows is computed and features at or above
+    the 75th percentile are retained (top 25%). Two matplotlib charts are
+    prepared during the call — one showing all features with a threshold line,
+    and one showing only selected features — but neither is displayed until
+    ``plt.show()`` is called by the caller.
+
+    Optionally tunes the Random Forest hyperparameters via ``BayesSearchCV``
+    before the importance sweep. If ``scikit-optimize`` is not installed,
+    tuning is silently skipped and the default estimator is used.
 
     Args:
-        df: Input DataFrame with features and target column.
-        target: Name of the target column.  Defaults to ``"BTC/USD"``.
-        window_size: Number of rows in each rolling window.
-        n_estimators: Number of trees per Random Forest.
+        df: Input DataFrame containing feature and target columns.
+        target: Name of the target column (default ``'BTC/USD'``).
+        window_size: Number of rows in each rolling window (default ``30``).
+        n_estimators: Number of trees per Random Forest (default ``10``).
         perform_tuning: If ``True``, tune hyperparameters with
-            ``BayesSearchCV`` before computing importances.
-        n_iterations: Number of Bayesian search iterations (only used
-            when *perform_tuning* is ``True``).
-        n_jobs: Number of parallel jobs for the Random Forest and
-            window sweep (``-1`` uses all available CPUs).
+          ``BayesSearchCV`` before computing importances (default ``False``).
+        n_iterations: Number of Bayesian search iterations; only used when
+          ``perform_tuning`` is ``True`` (default ``10``).
+        n_jobs: Number of parallel jobs for fitting and the window sweep.
+          ``-1`` uses all available CPUs (default ``-1``).
 
     Returns:
-        A tuple of:
-
-        * ``selected_features`` – list of retained column names.
-        * ``importance_scores`` – DataFrame with columns
-          ``Feature``, ``Score``, ``Selected`` for every input feature.
+        A tuple ``(selected_features, importance_scores)``, where
+        ``selected_features`` is a list of retained column names and
+        ``importance_scores`` is a DataFrame with columns ``Feature``,
+        ``Score``, and ``Selected`` for every input feature.
 
     Raises:
-        ValueError: If *df* is empty.
+        ValueError: If ``df`` is empty.
     """
     print(f"\nInitialising Random Forest feature selection...")
     print(f"Input shape   : {df.shape}")
@@ -181,7 +182,7 @@ def random_forest_selection(
     print(f"Features      : {len(feature_names)}")
     print(f"Windows       : {n_windows}")
 
-    # ── Optional Bayesian hyperparameter tuning ────────────────────────
+    # Optional Bayesian hyperparameter tuning 
     if perform_tuning:
         if not _SKOPT_AVAILABLE:
             print("[WARN] scikit-optimize not installed – skipping tuning.")
@@ -221,8 +222,20 @@ def random_forest_selection(
             n_jobs=n_jobs,
         )
 
-    def process_window(i: int) -> np.ndarray:
-        """Compute permutation importances for a single rolling window."""
+    def process_window(i: int) -> np.ndarray: # (Anthropic, 2026)
+        """Compute permutation importances for one rolling window.
+
+        Fits a cloned Random Forest on the window slice, records the baseline
+        R² score, then shuffles each feature column in turn and measures the
+        drop in R² as that feature's importance.
+
+        Args:
+            i: Starting row index of the window within the full dataset.
+
+        Returns:
+            A 1-D NumPy array of length ``n_features`` containing the
+            permutation importance for each feature in the window.
+        """
         window_X = X.iloc[i : i + window_size]
         window_y = y.iloc[i : i + window_size]
         rf_local = clone(rf)
@@ -261,7 +274,7 @@ def random_forest_selection(
     print(f"Selected {len(selected_features)} / {len(feature_names)} features "
           f"(threshold = {threshold:.6f}  [75th percentile])")
 
-    # ── All-features bar chart (with threshold line) ───────────────────
+    # All-features bar chart (with threshold line)
     sorted_idx = np.argsort(mean_importances)
     pos = np.arange(len(sorted_idx)) + 0.5
     fig, ax = plt.subplots(figsize=(12, max(6, len(feature_names) * 0.28)))
@@ -282,11 +295,19 @@ def random_forest_selection(
 
     return selected_features, results_df
 
+# Entry point 
+def main() -> None: # (Anthropic, 2026)
+    """Run Random Forest feature selection from the command line and save outputs.
 
-# ── Entry point ───────────────────────────────────────────────────────────
+    Reads the dataset specified by ``--dataset``, auto-detects or accepts a
+    ``--target`` column, runs :func:`random_forest_selection`, saves the
+    selected-features chart and the filtered CSV to ``OUTPUT_DIR``, prints the
+    list of selected features, then opens the interactive matplotlib window.
 
-def main() -> None:
-    """Parse CLI arguments, run Random Forest selection, and save charts and the filtered CSV."""
+    Raises:
+        SystemExit: If the input file does not exist or the target column is
+          not found in the dataset.
+    """
     parser = argparse.ArgumentParser(
         description="Window-based Random Forest permutation importance feature selection."
     )
@@ -325,11 +346,11 @@ def main() -> None:
         n_iterations=args.n_iter,
     )
 
-    # ── Save selected-features chart ───────────────────────────────────
+    # Save selected-features chart
     chart_out = OUTPUT_DIR / "RF_selected_feature_importance"
     plot_feature_importance(scores_df, "Random Forest", chart_out)
 
-    # ── Save selected-features CSV ────────────────────────────────────
+    # Save selected-features CSV 
     out_csv = save_selected_features(df, selected, target, "RandomForest", input_path.stem)
     print(f"\nSelected features CSV saved -> {out_csv}")
     print(f"\nSelected features ({len(selected)}):")
