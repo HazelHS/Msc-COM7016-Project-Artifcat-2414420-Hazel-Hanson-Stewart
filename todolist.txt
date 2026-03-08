@@ -1,16 +1,31 @@
-#-------------#
-# Completed:  #
-#-------------#
+#------------------#
+# Software side:   #
+# Completed:       #
+#------------------#
 
 - Data Colleciton - done!
 - Data Processing - done!
 - AI model designs - done!
 - model training method - done!
 - Evaluation metrics - *unfinished* 
+- Unit tests - *unfinished*
 
-#-------------#
-# Left to do: #
-#-------------#
+#-------------------#
+# Left to do:       #
+#-------------------#
 
 - Evaluations need to add more.
 - Add unit tests.
+
+#-------------------#
+# Report important: #
+#-------------------#
+
+- Conduct and record experiments on both MEND-TCN and xLSTM-TS models, with:
+	- different target features
+	- differnet dataset processing methods
+	- different feature selection methods on both previous steps.
+
+#-------------------#
+# Left to do:       #
+#-------------------#

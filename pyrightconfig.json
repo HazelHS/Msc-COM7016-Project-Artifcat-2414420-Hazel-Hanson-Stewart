@@ -1,0 +1,11 @@
+{
+  "extraPaths": [
+    ".",
+    "AI_Modules/Model_Designs",
+    "AI_Modules/Training_Methods",
+    "Dataset_Modules/Dataset_Processing_Methods",
+    "Evaluation_Modules/Evaluation_Metrics",
+    "Interface_Modules"
+  ],
+  "reportMissingImports": "warning"
+}

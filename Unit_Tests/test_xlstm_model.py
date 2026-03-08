@@ -1,0 +1,96 @@
+"""
+Unit tests for AI_Modules/Model_Designs/xLSTM_TS.py
+
+Validates:
+  - xLSTM_TS_Model forward pass output shape across a range of hyperparameter
+    configurations (parametrised).
+  - Model output is finite (no NaN / Inf from unstable initialisations).
+  - directional_loss returns a non-negative scalar tensor.
+  - Perfect predictions produce zero loss.
+
+No training is performed; all tests operate on randomly-initialised weights
+and random input tensors.
+"""
+
+import pytest
+import torch
+
+from xLSTM_TS import xLSTM_TS_Model, directional_loss
+
+
+# ── xLSTM_TS_Model forward pass ───────────────────────────────────────────────
+
+class TestXLSTMForwardPass:
+
+    @pytest.mark.parametrize("batch,seq_len,n_feats,embed_dim,out_size", [
+        (8,  30, 3, 32, 1),   # small config, single-step
+        (4,  60, 5, 64, 7),   # default-scale config, 7-step horizon
+        (1,  10, 1, 16, 3),   # single sample, minimal features
+        (16, 20, 2, 32, 5),   # larger batch
+    ])
+    def test_output_shape(self, batch, seq_len, n_feats, embed_dim, out_size):
+        """Output tensor must be exactly [batch, output_size] for any valid config."""
+        model = xLSTM_TS_Model(
+            input_shape=(seq_len, n_feats),
+            embedding_dim=embed_dim,
+            output_size=out_size,
+        )
+        model.eval()
+        with torch.no_grad():
+            out = model(torch.randn(batch, seq_len, n_feats))
+        assert out.shape == (batch, out_size), (
+            f"Expected ({batch}, {out_size}), got {out.shape}"
+        )
+
+    def test_output_is_finite(self):
+        """Randomly-initialised model must not produce NaN or Inf on the first pass."""
+        model = xLSTM_TS_Model(input_shape=(20, 2), embedding_dim=32, output_size=5)
+        model.eval()
+        with torch.no_grad():
+            out = model(torch.randn(4, 20, 2))
+        assert torch.isfinite(out).all(), (
+            "Model output contains NaN or Inf with default initialisation"
+        )
+
+    def test_batch_size_one_does_not_raise(self):
+        """A batch of one must pass through every layer without shape errors."""
+        model = xLSTM_TS_Model(input_shape=(15, 3), embedding_dim=16, output_size=4)
+        model.eval()
+        with torch.no_grad():
+            out = model(torch.randn(1, 15, 3))
+        assert out.shape == (1, 4)
+
+    def test_model_is_nn_module(self):
+        """xLSTM_TS_Model must be a proper torch.nn.Module subclass."""
+        import torch.nn as nn
+        model = xLSTM_TS_Model(input_shape=(10, 2), embedding_dim=16, output_size=1)
+        assert isinstance(model, nn.Module)
+
+
+# ── directional_loss ──────────────────────────────────────────────────────────
+
+class TestDirectionalLoss:
+
+    def test_returns_scalar_tensor(self):
+        """Loss must be a zero-dimensional (scalar) tensor."""
+        loss = directional_loss(torch.rand(8, 7), torch.rand(8, 7))
+        assert loss.ndim == 0, f"Expected scalar, got shape {loss.shape}"
+
+    def test_loss_is_non_negative(self):
+        """MSE-based loss can never be negative."""
+        loss = directional_loss(torch.rand(8, 7), torch.rand(8, 7))
+        assert loss.item() >= 0.0
+
+    def test_perfect_prediction_produces_zero_loss(self):
+        """When y_pred == y_true the MSE component must be exactly zero."""
+        y = torch.rand(4, 7)
+        loss = directional_loss(y, y.clone())
+        assert loss.item() == pytest.approx(0.0, abs=1e-6)
+
+    def test_worse_predictions_give_higher_loss(self):
+        """A prediction offset by a large constant must yield higher loss than
+        a prediction equal to the target."""
+        y_true = torch.rand(8, 7)
+        y_perfect = y_true.clone()
+        y_bad = y_true + 10.0
+        assert directional_loss(y_true, y_bad).item() > directional_loss(y_true, y_perfect).item()
