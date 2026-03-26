@@ -54,30 +54,33 @@ from Train_MEMD_TCN import (
 def load_model_and_run_inference(
     model_path: str | Path,
     dataset_path: str | Path,
+    forecast_step: int = 1,
 ) -> dict: # (Anthropic, 2026)
     """Load a trained checkpoint and run inference on the test split.
 
     Reads saved hyperparameters from the checkpoint to detect the model
     type (xLSTM_TS or MEMD_TCN), rebuilds the correct architecture, and
-    preprocesses *dataset_path* with the same pipeline used during
-    training before running inference on the held-out test split.
+    preprocesses the dataset with the same pipeline used during training
+    before running inference on the held-out test split.
 
     Args:
         model_path: Absolute path to a .pt checkpoint file produced by a
             training script.
         dataset_path: Absolute path to a .csv dataset file compatible with
             the checkpoint's training data.
+        forecast_step: Which step of the multi-step output to evaluate,
+            where 1 = t+1 (next timestep), 2 = t+2, etc.  Clamped to the
+            model's output_size for xLSTM_TS.  MEMD_TCN only supports
+            step 1; larger values are ignored with a warning.
 
     Returns:
-        A dict with the following keys:
-            predictions:  1-D np.ndarray of inverse-scaled model predictions
-                on the test split.
-            actuals:      1-D np.ndarray of inverse-scaled ground-truth
-                values on the test split.
-            y_train:      1-D np.ndarray of unscaled raw training targets,
-                used as the naive-forecast denominator for MASE.
-            model_name:   str identifying the model type.
-            dataset_name: str filename of the dataset CSV.
+        A dict with keys ``predictions`` (1-D np.ndarray of inverse-scaled
+        model predictions on the test split), ``actuals`` (1-D np.ndarray
+        of inverse-scaled ground-truth values), ``y_train`` (1-D np.ndarray
+        of unscaled training targets used as the naive-forecast denominator
+        for MASE), ``model_name`` (str identifying the model type),
+        ``dataset_name`` (str filename of the dataset CSV), and
+        ``forecast_step`` (int of the evaluated forecast step).
 
     Raises:
         RuntimeError: If the checkpoint contains an unrecognised model type,
@@ -85,9 +88,11 @@ def load_model_and_run_inference(
     """
     model_path   = Path(model_path)
     dataset_path = Path(dataset_path)
+    forecast_step = max(1, int(forecast_step))
 
     print(f"[eval_utils] Loading checkpoint : {model_path.name}")
     print(f"[eval_utils] Dataset            : {dataset_path.name}")
+    print(f"[eval_utils] Forecast step      : t+{forecast_step}")
 
     # 1. Load checkpoint 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -103,33 +108,39 @@ def load_model_and_run_inference(
 
     # 3. Route to model-specific pipeline 
     if mtype == "xLSTM_TS":
-        return _infer_xlstm(ckpt, hp, df, dataset_path, device)
+        return _infer_xlstm(ckpt, hp, df, dataset_path, device, forecast_step)
     elif mtype == "MEMD_TCN":
-        return _infer_memd(ckpt, hp, df, dataset_path, device)
+        return _infer_memd(ckpt, hp, df, dataset_path, device, forecast_step)
     else:
         raise RuntimeError(f"[eval_utils] Unknown model type in checkpoint: '{mtype}'")
 
 # xLSTM_TS inference
 def _infer_xlstm(ckpt: dict, hp: dict, df: pd.DataFrame,
-                 dataset_path: Path, device: torch.device) -> dict: # (Anthropic, 2026)
+                 dataset_path: Path, device: torch.device,
+                 forecast_step: int = 1) -> dict: # (Anthropic, 2026)
     """Run the xLSTM-TS data-preparation and inference pipeline.
 
-    Reconstructs the xLSTM-TS model from *hp*, applies the same temporal
-    split and MinMax scaling used during training, builds sliding-window
-    sequences, and collects first-step predictions on the test split.
+    Reconstructs the xLSTM-TS model from hp, applies a temporal
+    train/val/test split with MinMax scaling, builds sliding-window
+    sequences, and collects predictions for the specified forecast step
+    on the test split.
 
     Args:
         ckpt: Checkpoint dict returned by ``torch.load()``, containing
             ``model_state_dict`` and ``hyperparameters``.
         hp: Hyperparameter dict extracted from ``ckpt['hyperparameters']``.
-        df: Dataset DataFrame already loaded from *dataset_path*.
-        dataset_path: Path to the dataset CSV; used only to populate
+        df: Dataset DataFrame already loaded from dataset_path.
+        dataset_path: Path to the dataset CSV; used to populate
             ``dataset_name`` in the returned dict.
         device: Torch device on which to build and run the model.
+        forecast_step: 1-based index of the output step to evaluate
+            (1 = t+1, 2 = t+2, …).  Clamped to ``output_size`` if
+            it exceeds the trained horizon.
 
     Returns:
         A dict with keys ``predictions``, ``actuals``, ``y_train``,
-        ``model_name`` (``"xLSTM_TS"``), and ``dataset_name``.
+        ``model_name`` (``"xLSTM_TS"``), ``dataset_name``, and
+        ``forecast_step`` (the actual step used after any clamping).
     """
 
     target_col      = hp.get("target_col", "BTC/USD")
@@ -193,6 +204,14 @@ def _infer_xlstm(ckpt: dict, hp: dict, df: pd.DataFrame,
     model.load_state_dict(ckpt["model_state_dict"])
     model.eval()
 
+    # Clamp forecast_step to the model's actual output range
+    step_idx = min(forecast_step - 1, output_size - 1)
+    if step_idx != forecast_step - 1:
+        print(
+            f"[eval_utils] forecast_step={forecast_step} exceeds output_size={output_size}; "
+            f"clamping to t+{step_idx + 1}."
+        )
+
     # Inference
     all_preds, all_acts = [], []
     with torch.no_grad():
@@ -202,8 +221,8 @@ def _infer_xlstm(ckpt: dict, hp: dict, df: pd.DataFrame,
             all_preds.append(out.cpu().numpy())
             all_acts.append(y_batch.numpy())
 
-    preds_np = np.concatenate(all_preds)[:, 0]         # first forecast step
-    acts_np  = np.concatenate(all_acts)[:, 0]
+    preds_np = np.concatenate(all_preds)[:, step_idx]  # selected forecast step
+    acts_np  = np.concatenate(all_acts)[:, step_idx]
 
     preds_inv = target_scaler.inverse_transform(preds_np.reshape(-1, 1)).flatten()
     acts_inv  = target_scaler.inverse_transform(acts_np.reshape(-1, 1)).flatten()
@@ -214,34 +233,42 @@ def _infer_xlstm(ckpt: dict, hp: dict, df: pd.DataFrame,
         "y_train":      y_train_raw,
         "model_name":   "xLSTM_TS",
         "dataset_name": dataset_path.name,
+        "forecast_step": step_idx + 1,
     }
 
 # MEMD_TCN inference
 def _infer_memd(ckpt: dict, hp: dict, df: pd.DataFrame,
-                dataset_path: Path, device: torch.device) -> dict: # (Anthropic, 2026)
+                dataset_path: Path, device: torch.device,
+                forecast_step: int = 1) -> dict: # (Anthropic, 2026)
     """Run the MEMD-TCN data-preparation and inference pipeline.
 
     Calls ``prepare_data_memd`` to perform MEMD decomposition and produce
-    train/val/test datasets, rebuilds the MEMD_TCN_Model from *hp*, and
+    train/val/test datasets, rebuilds the MEMD_TCN_Model from hp, and
     collects per-component predictions that are summed via
-    ``model.reconstruct`` before inverse scaling.
+    ``model.reconstruct`` before inverse scaling.  MEMD-TCN is a strict
+    1-step-ahead model; forecast_step values greater than 1 trigger a
+    warning and t+1 is always returned.
 
     Args:
         ckpt: Checkpoint dict returned by ``torch.load()``, containing
             ``model_state_dict`` and ``hyperparameters``.
         hp: Hyperparameter dict extracted from ``ckpt['hyperparameters']``.
-        df: Dataset DataFrame already loaded from *dataset_path*.
-        dataset_path: Path to the dataset CSV; used only to populate
+        df: Dataset DataFrame already loaded from dataset_path.
+        dataset_path: Path to the dataset CSV; used to populate
             ``dataset_name`` in the returned dict.
         device: Torch device on which to build and run the model.
+        forecast_step: Intended forecast step from the caller.  Values
+            above 1 are not supported and trigger a warning; t+1 is
+            always evaluated.
 
     Returns:
         A dict with keys ``predictions``, ``actuals``, ``y_train``,
-        ``model_name`` (``"MEMD_TCN"``), and ``dataset_name``.
+        ``model_name`` (``"MEMD_TCN"``), ``dataset_name``, and
+        ``forecast_step`` (always 1).
 
     Raises:
         RuntimeError: If ``prepare_data_memd`` returns ``None``, indicating
-            the decomposition or data-prep stage failed.
+            the decomposition or data-preparation stage failed.
     """
 
     target_col      = hp.get("target_col", "BTC/USD")
@@ -325,6 +352,12 @@ def _infer_memd(ckpt: dict, hp: dict, df: pd.DataFrame,
     preds_np = np.concatenate(all_preds)
     acts_np  = np.concatenate(all_acts)
 
+    if forecast_step > 1:
+        print(
+            f"[eval_utils] MEMD_TCN is a 1-step-ahead model; "
+            f"forecast_step={forecast_step} is not supported — evaluating t+1."
+        )
+
     preds_inv = target_scaler.inverse_transform(preds_np.reshape(-1, 1)).flatten()
     acts_inv  = target_scaler.inverse_transform(acts_np.reshape(-1, 1)).flatten()
 
@@ -334,6 +367,7 @@ def _infer_memd(ckpt: dict, hp: dict, df: pd.DataFrame,
         "y_train":      y_train_raw,
         "model_name":   "MEMD_TCN",
         "dataset_name": dataset_path.name,
+        "forecast_step": 1,
     }
 
 # Shared metric helpers
@@ -343,19 +377,19 @@ def calculate_mase(y_true: np.ndarray,
     """Compute the Mean Absolute Scaled Error (MASE).
 
     Scales the model's MAE against the MAE of a naive one-step persistence
-    forecast computed on *y_train*.  A MASE < 1 indicates the model
-    outperforms the naive baseline.  When *y_train* is ``None`` or too
-    short, *y_true* is used as the fallback denominator series.
+    forecast computed on y_train.  When y_train is ``None`` or too short,
+    y_true is used as the fallback denominator series.
 
     Args:
         y_true: 1-D array of ground-truth test values.
-        y_pred: 1-D array of model predictions, same length as *y_true*.
-        y_train: 1-D array of unscaled training targets used to compute
-            the naive persistence benchmark.  When ``None``, *y_true* is
-            used instead.
+        y_pred: 1-D array of model predictions, the same length as y_true.
+        y_train: 1-D array of unscaled training targets used to compute the
+            naive persistence benchmark.  Pass ``None`` to fall back to
+            y_true as the denominator.
 
     Returns:
-        MASE as a float.
+        MASE as a float.  Values below 1.0 indicate the model outperforms
+        the naive persistence forecast.
     """
     from sklearn.metrics import mean_absolute_error
     mae = mean_absolute_error(y_true, y_pred)

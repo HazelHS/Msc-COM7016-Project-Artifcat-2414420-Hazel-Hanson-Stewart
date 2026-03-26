@@ -1,3 +1,6 @@
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+
 """
 Pytest configuration for Unit_Tests.
 
@@ -11,12 +14,10 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent  # project root
 
-
-def _add(path: Path) -> None:
+def _add(path: Path) -> None: # (Anthropic, 2026)
     s = str(path)
     if s not in sys.path:
         sys.path.insert(0, s)
-
 
 _add(_ROOT)
 _add(_ROOT / "AI_Modules" / "Model_Designs")

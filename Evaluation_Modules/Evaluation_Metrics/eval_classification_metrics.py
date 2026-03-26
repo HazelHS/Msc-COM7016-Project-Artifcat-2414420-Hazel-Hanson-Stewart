@@ -19,7 +19,7 @@ if str(_here) not in sys.path:
     sys.path.insert(0, str(_here))
 
 # Project imports
-from eval_utils import load_model_and_run_inference
+from __eval_utils import load_model_and_run_inference
 
 import numpy as np
 import matplotlib
@@ -30,11 +30,13 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 
 # CLI
 def parse_args() -> argparse.Namespace: # (Anthropic, 2026)
-    """Parse CLI arguments for the classification metrics evaluation script.
+    """Configure and parse CLI arguments for the classification metrics script.
 
     Returns:
-        An argparse.Namespace containing ``model`` (str path to the .pt
-        checkpoint) and ``dataset`` (str path to the .csv file).
+        An argparse.Namespace with attributes ``model`` (str, path to the
+        .pt checkpoint file), ``dataset`` (str, path to the .csv dataset
+        file), and ``forecast_step`` (int, forecast step to evaluate;
+        default 1).
     """
     p = argparse.ArgumentParser(
         description="Evaluate directional classification metrics for a trained model."
@@ -51,27 +53,35 @@ def parse_args() -> argparse.Namespace: # (Anthropic, 2026)
         required=True,
         help="Absolute path to the dataset .csv file for evaluation.",
     )
+    p.add_argument(
+        "--forecast_step",
+        type=int,
+        default=1,
+        help="Which forecast step to evaluate: 1=t+1, 2=t+2, etc. (default: 1).",
+    )
     return p.parse_args()
 
 # Main
 def main() -> None: # (Anthropic, 2026)
-    """Load a checkpoint, run inference on the test split, and display directional classification metrics.
+    """Run the directional classification metrics evaluation pipeline.
 
-    Delegates data loading and inference to ``load_model_and_run_inference``,
-    derives binary up/down labels from consecutive differences in the returned
-    predictions and actuals, then computes accuracy, precision, recall, and F1
-    score.  Prints a summary to stdout and renders a percentage bar chart via
-    Matplotlib.
+    Parses CLI arguments, loads the checkpoint and dataset via
+    ``load_model_and_run_inference``, derives binary up/down movement labels
+    from consecutive differences in the returned predictions and actuals,
+    computes accuracy, precision, recall, and F1 score, prints a formatted
+    summary to stdout, and renders a percentage bar chart via Matplotlib.
     """
     args = parse_args()
 
     # Load model and run inference 
-    result = load_model_and_run_inference(args.model, args.dataset)
+    result = load_model_and_run_inference(args.model, args.dataset,
+                                          forecast_step=args.forecast_step)
 
     predictions  = result["predictions"]
     actuals      = result["actuals"]
     model_name   = result["model_name"]
     dataset_name = result["dataset_name"]
+    forecast_step = result.get("forecast_step", args.forecast_step)
 
     # ── Directional (binary) classification 
     binary_pred = np.diff(predictions) > 0   # True = predicted "up"
@@ -87,6 +97,7 @@ def main() -> None: # (Anthropic, 2026)
     print(f"  Directional Classification Metrics")
     print(f"  Model  : {model_name}")
     print(f"  Data   : {dataset_name}")
+    print(f"  Step   : t+{forecast_step}")
     print(f"{'=' * 55}")
     print(f"  Accuracy  : {accuracy:.4f}  ({accuracy * 100:.1f}%)")
     print(f"  Precision : {precision:.4f}  ({precision * 100:.1f}%)")
@@ -114,7 +125,7 @@ def main() -> None: # (Anthropic, 2026)
     ax.set_ylim(0, 110)
     ax.yaxis.set_major_formatter(ticker.PercentFormatter())
     ax.set_title(
-        f"Directional Classification Metrics\n"
+        f"Directional Classification Metrics  —  t+{forecast_step}\n"
         f"{model_name}  |  {dataset_name}",
         fontsize=13, pad=14,
     )
@@ -125,7 +136,7 @@ def main() -> None: # (Anthropic, 2026)
 
     fig.text(
         0.5, 0.01,
-        "Note: Metrics are based on next-step directional (up/down) movement prediction.\n"
+        f"Note: Metrics are based on t+{forecast_step} directional (up/down) movement prediction.\n"
         "Accuracy = % of correctly predicted directions. Higher is better.",
         ha="center", fontsize=8, style="italic", color="dimgrey",
     )

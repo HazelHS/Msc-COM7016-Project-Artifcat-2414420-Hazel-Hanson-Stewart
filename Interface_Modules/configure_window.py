@@ -60,8 +60,9 @@ class ConfigureWindow: # (Anthropic, 2026)
         if self._show_dataset_select:
             stage.setdefault("dataset_csv", "")
         if self._show_eval_select:
-            stage.setdefault("model_file",  "")
-            stage.setdefault("dataset_csv", "")
+            stage.setdefault("model_file",    "")
+            stage.setdefault("dataset_csv",   "")
+            stage.setdefault("forecast_step", 1)
 
         self._win = tk.Toplevel(parent)
         self._win.title(f"Configure: {stage['label_text']}")
@@ -80,8 +81,9 @@ class ConfigureWindow: # (Anthropic, 2026)
         self._csv_var: tk.StringVar | None = None
 
         # Eval-stage variables (created only when _show_eval_select is True)
-        self._eval_model_var: tk.StringVar | None = None
-        self._eval_csv_var:   tk.StringVar | None = None
+        self._eval_model_var:      tk.StringVar | None = None
+        self._eval_csv_var:        tk.StringVar | None = None
+        self._forecast_step_var:   tk.StringVar | None = None
 
         self._build()
 
@@ -254,6 +256,26 @@ class ConfigureWindow: # (Anthropic, 2026)
             eval_frame, text="\u21ba", width=3, command=self._refresh_eval_csvs
         ).grid(row=1, column=2, padx=(4, 0), pady=3)
 
+        # Forecast step
+        ttk.Label(eval_frame, text="Forecast Step (t+N):").grid(
+            row=2, column=0, sticky="w", padx=(0, 6), pady=3
+        )
+        self._forecast_step_var = tk.StringVar(
+            value=str(self._stage.get("forecast_step", 1))
+        )
+        vcmd = eval_frame.register(lambda s: s == "" or (s.isdigit() and int(s) >= 1))
+        ttk.Spinbox(
+            eval_frame,
+            textvariable=self._forecast_step_var,
+            from_=1, to=99, increment=1, width=6,
+            validate="key", validatecommand=(vcmd, "%P"),
+        ).grid(row=2, column=1, sticky="w", pady=3)
+        ttk.Label(
+            eval_frame,
+            text="(1 = next day/t+1, 2 = t+2 …  xLSTM-TS only; MEMD-TCN always uses t+1)",
+            foreground="grey",
+        ).grid(row=2, column=1, sticky="w", padx=(70, 0), pady=3)
+
         self._refresh_models()
         self._refresh_eval_csvs()
 
@@ -373,6 +395,11 @@ class ConfigureWindow: # (Anthropic, 2026)
                 self._stage["model_file"]  = self._eval_model_var.get()
             if self._eval_csv_var is not None:
                 self._stage["dataset_csv"] = self._eval_csv_var.get()
+            if self._forecast_step_var is not None:
+                try:
+                    self._stage["forecast_step"] = max(1, int(self._forecast_step_var.get()))
+                except ValueError:
+                    self._stage["forecast_step"] = 1
         self._stage["status_var"].set(self._status_text())
         self._win.destroy()
 

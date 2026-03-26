@@ -7,15 +7,15 @@
 - Data Processing - done!
 - AI model designs - done!
 - model training method - done!
-- Evaluation metrics - *unfinished* 
-- Unit tests - *unfinished*
+- Evaluation metrics - done!
+- Unit tests - done!
 
 #-------------------#
 # Left to do:       #
 #-------------------#
 
-- Evaluations need to add more.
-- Add unit tests.
+- user manual
+- implement github actions for auto unit test running
 
 #-------------------#
 # Report important: #
@@ -26,6 +26,3 @@
 	- differnet dataset processing methods
 	- different feature selection methods on both previous steps.
 
-#-------------------#
-# Left to do:       #
-#-------------------#

@@ -7,3 +7,6 @@ Currently, this project requires jupyter notebook support. It is recommended to 
 3. Next, open Dataset_Processor.ipynb and run each code block in succession, this is the processing steps for the base model's dataset, each block will explain its function and purpose.
 
 - the training of the models locks in the target feature, which is key to how hyperparameter tuning works.
+
+
+run tests on commandline with "pytest Unit_Tests/ -v"

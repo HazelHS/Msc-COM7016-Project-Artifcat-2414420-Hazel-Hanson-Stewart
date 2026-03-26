@@ -21,7 +21,7 @@ if str(_here) not in sys.path:
     sys.path.insert(0, str(_here))
 
 # Project imports
-from eval_utils import load_model_and_run_inference
+from __eval_utils import load_model_and_run_inference
 
 import numpy as np
 import matplotlib
@@ -31,12 +31,14 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 # CLI
 def parse_args() -> argparse.Namespace: # (Anthropic, 2026)
-    """Parse CLI arguments for the predictions-vs-actuals plot script.
+    """Configure and parse CLI arguments for the predictions-vs-actuals plot script.
 
     Returns:
-        An argparse.Namespace containing ``model`` (str path to the .pt
-        checkpoint), ``dataset`` (str path to the .csv file), and ``sample``
-        (int maximum number of test-set timesteps to display).
+        An argparse.Namespace with attributes ``model`` (str, path to the
+        .pt checkpoint file), ``dataset`` (str, path to the .csv dataset
+        file), ``forecast_step`` (int, forecast step to evaluate; default
+        1), and ``sample`` (int, maximum number of test-set timesteps to
+        display; default 200).
     """
     p = argparse.ArgumentParser(
         description="Plot predictions vs actuals for a trained model on a test dataset."
@@ -54,6 +56,12 @@ def parse_args() -> argparse.Namespace: # (Anthropic, 2026)
         help="Absolute path to the dataset .csv file for evaluation.",
     )
     p.add_argument(
+        "--forecast_step",
+        type=int,
+        default=1,
+        help="Which forecast step to evaluate: 1=t+1, 2=t+2, etc. (default: 1).",
+    )
+    p.add_argument(
         "--sample",
         type=int,
         default=200,
@@ -63,23 +71,26 @@ def parse_args() -> argparse.Namespace: # (Anthropic, 2026)
 
 # Main
 def main() -> None: # (Anthropic, 2026)
-    """Load a checkpoint, run inference on the test split, and plot predictions vs actuals.
+    """Run the predictions-vs-actuals plotting pipeline.
 
-    Delegates data loading and inference to ``load_model_and_run_inference``,
-    computes MAE and RMSE on the returned inverse-scaled arrays, prints a
-    summary to stdout, and renders an overlaid line chart with a shaded error
-    area via Matplotlib.  At most ``--sample`` evenly-spaced timesteps from
-    the test split are plotted.
+    Parses CLI arguments, loads the checkpoint and dataset via
+    ``load_model_and_run_inference``, computes MAE and RMSE on the
+    inverse-scaled test-split arrays, prints a summary to stdout, and
+    renders an overlaid line chart with a shaded error area via Matplotlib.
+    At most ``--sample`` evenly-spaced timesteps from the test split are
+    plotted.
     """
     args = parse_args()
 
     # Load model and run inference 
-    result = load_model_and_run_inference(args.model, args.dataset)
+    result = load_model_and_run_inference(args.model, args.dataset,
+                                          forecast_step=args.forecast_step)
 
     predictions  = result["predictions"]
     actuals      = result["actuals"]
     model_name   = result["model_name"]
     dataset_name = result["dataset_name"]
+    forecast_step = result.get("forecast_step", args.forecast_step)
 
     # Summary metrics for subtitle
     mae  = mean_absolute_error(actuals, predictions)
@@ -89,6 +100,7 @@ def main() -> None: # (Anthropic, 2026)
     print(f"  Predictions vs Actuals")
     print(f"  Model  : {model_name}")
     print(f"  Data   : {dataset_name}")
+    print(f"  Step   : t+{forecast_step}")
     print(f"  MAE    : {mae:.4f}   RMSE : {rmse:.4f}")
     print(f"  Test samples plotted : {min(args.sample, len(actuals))}")
     print(f"{'=' * 55}\n")
@@ -115,7 +127,7 @@ def main() -> None: # (Anthropic, 2026)
     )
 
     ax.set_title(
-        f"Predictions vs Actuals  (test split sample)\n"
+        f"Predictions vs Actuals  (test split sample)  —  t+{forecast_step}\n"
         f"{model_name}  |  {dataset_name}  |  MAE={mae:.4f}  RMSE={rmse:.4f}",
         fontsize=12, pad=12,
     )
@@ -127,7 +139,7 @@ def main() -> None: # (Anthropic, 2026)
 
     fig.text(
         0.5, 0.01,
-        "Note: Up to 200 evenly-spaced test-set timesteps are shown.\n"
+        f"Note: Up to {args.sample} evenly-spaced test-set timesteps are shown  (forecast step: t+{forecast_step}).\n"
         "The shaded area represents the prediction error at each point.",
         ha="center", fontsize=8, style="italic", color="dimgrey",
     )

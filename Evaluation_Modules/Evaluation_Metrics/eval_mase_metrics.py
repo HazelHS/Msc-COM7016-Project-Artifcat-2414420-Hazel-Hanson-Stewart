@@ -27,7 +27,7 @@ if str(_here) not in sys.path:
     sys.path.insert(0, str(_here))
 
 # Project imports
-from eval_utils import load_model_and_run_inference, calculate_mase
+from __eval_utils import load_model_and_run_inference, calculate_mase
 
 import numpy as np
 import matplotlib
@@ -36,11 +36,13 @@ import matplotlib.pyplot as plt
 
 # CLI
 def parse_args() -> argparse.Namespace: # (Anthropic, 2026)
-    """Parse CLI arguments for the MASE evaluation script.
+    """Configure and parse CLI arguments for the MASE evaluation script.
 
     Returns:
-        An argparse.Namespace containing ``model`` (str path to the .pt
-        checkpoint) and ``dataset`` (str path to the .csv file).
+        An argparse.Namespace with attributes ``model`` (str, path to the
+        .pt checkpoint file), ``dataset`` (str, path to the .csv dataset
+        file), and ``forecast_step`` (int, forecast step to evaluate;
+        default 1).
     """
     p = argparse.ArgumentParser(
         description="Evaluate MASE (Mean Absolute Scaled Error) for a trained model."
@@ -57,29 +59,38 @@ def parse_args() -> argparse.Namespace: # (Anthropic, 2026)
         required=True,
         help="Absolute path to the dataset .csv file for evaluation.",
     )
+    p.add_argument(
+        "--forecast_step",
+        type=int,
+        default=1,
+        help="Which forecast step to evaluate: 1=t+1, 2=t+2, etc. (default: 1).",
+    )
     return p.parse_args()
 
 # Main
 def main() -> None: # (Anthropic, 2026)
-    """Load a checkpoint, run inference on the test split, and display a MASE bar chart.
+    """Run the MASE evaluation pipeline.
 
-    Delegates data loading and inference to ``load_model_and_run_inference``,
-    computes MASE via ``calculate_mase`` using the returned predictions, actuals,
-    and unscaled training targets, then prints a rated summary to stdout and
-    renders a colour-coded bar chart with qualitative zone bands via Matplotlib.
-    The bar is capped at 10 on the y-axis to prevent extreme values from
-    distorting the display.
+    Parses CLI arguments, loads the checkpoint and dataset via
+    ``load_model_and_run_inference``, computes MASE via ``calculate_mase``
+    using the returned predictions, actuals, and unscaled training targets,
+    prints a rated summary to stdout, and renders a colour-coded bar chart
+    with qualitative zone bands (green/yellow/red) via Matplotlib.  The
+    y-axis is capped at 10 to prevent extreme values from distorting the
+    display.
     """
     args = parse_args()
 
     # Load model and run inference
-    result = load_model_and_run_inference(args.model, args.dataset)
+    result = load_model_and_run_inference(args.model, args.dataset,
+                                          forecast_step=args.forecast_step)
 
     predictions  = result["predictions"]
     actuals      = result["actuals"]
     y_train      = result["y_train"]
     model_name   = result["model_name"]
     dataset_name = result["dataset_name"]
+    forecast_step = result.get("forecast_step", args.forecast_step)
 
     # MASE 
     mase      = calculate_mase(actuals, predictions, y_train)
@@ -101,6 +112,7 @@ def main() -> None: # (Anthropic, 2026)
     print(f"  Time-Series Metric: MASE")
     print(f"  Model  : {model_name}")
     print(f"  Data   : {dataset_name}")
+    print(f"  Step   : t+{forecast_step}")
     print(f"{'=' * 55}")
     print(f"  MASE   : {mase:.4f}")
     print(f"  Rating : {rating}")
@@ -132,7 +144,7 @@ def main() -> None: # (Anthropic, 2026)
 
     ax.set_ylim(0, y_upper)
     ax.set_title(
-        f"Mean Absolute Scaled Error (MASE)\n"
+        f"Mean Absolute Scaled Error (MASE)  \u2014  t+{forecast_step}\n"
         f"{model_name}  |  {dataset_name}",
         fontsize=12, pad=12,
     )

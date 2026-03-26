@@ -460,9 +460,11 @@ class MainWindow: # (Anthropic, 2026)
                     tag="error",
                 )
                 return
-            model_path = os.path.join(TRAINED_MODEL_DIR, model_name)
-            csv_path   = os.path.join(DATASET_OUTPUT_DIR, csv_name)
-            extra = ["--model", model_path, "--dataset", csv_path]
+            model_path    = os.path.join(TRAINED_MODEL_DIR, model_name)
+            csv_path      = os.path.join(DATASET_OUTPUT_DIR, csv_name)
+            forecast_step = str(stage.get("forecast_step", 1))
+            extra = ["--model", model_path, "--dataset", csv_path,
+                     "--forecast_step", forecast_step]
 
         self._run_queue.clear()
         for name in selected:

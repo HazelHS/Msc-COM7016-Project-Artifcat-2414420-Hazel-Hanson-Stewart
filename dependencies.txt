@@ -1,18 +1,27 @@
-pandas
-yfinance
-requests
-numpy
-matplotlib
-PyWavelets
-seaborn
-scikit-learn
-scipy
-statsmodels
-tqdm
-ipywidgets
-boruta
-visualkeras
-pydot
-pillow
+# AI declaration:
+# Github copilot was used for portions of the planning, research, feedback and editing of the software artefact. Mostly utilised for syntax, logic and error checking with ChatGPT and Claude Sonnet 4.6 used as the models.
+# (Anthropic, 2026)
+
+pandas              # Tabular/time-series data structures and I/O for loading, cleaning, resampling, and feature engineering.
+yfinance            # Download historical stock and market data (prices, dividends) directly from Yahoo Finance.
+requests            # HTTP client for calling web APIs and fetching remote resources not covered by yfinance.
+numpy               # Core numerical arrays and linear algebra used throughout data processing and ML pipelines.
+matplotlib          # Base plotting library for custom charts and figures (used by analysis and reports).
+PyWavelets          # Wavelet transforms for multiresolution signal processing (feature extraction/denoising of price series).
+seaborn             # Higher-level statistical plotting (heatmaps, distribution plots) built on matplotlib.
+scikit-learn        # Classic ML models, preprocessing, model selection, pipelines, and evaluation utilities.
+scipy               # Scientific routines (signal processing, optimization, statistics) complementing numpy and scikit-learn.
+statsmodels         # Statistical and econometric time-series models (ARIMA, regression diagnostics, hypothesis tests).
+tqdm                # Progress bars for loops and long-running data/training tasks to improve UX during experiments.
+ipywidgets          # Interactive controls for Jupyter; used by GUI/interactive analysis notebooks or demos.
+boruta              # Wrapper feature-selection algorithm for identifying relevant predictors in high-dimensional data.
+visualkeras         # Simple visualization of Keras/PyTorch model architectures for documentation and debugging.
+pydot               # Graphviz bindings for rendering model/flow diagrams (used with packages that output DOT).
+pillow              # Image I/O and basic image processing (saving/annotating plots or model visualizations).
+                    # "torch" is PyTorch core (deep learning models), torchvision for image datasets/models, torchaudio for audio processing—included if deep models or pretrained components are used.
 torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
-torchviz
+torchviz            # Visualize PyTorch computation graphs to inspect model structure and forward/backward flows.
+
+
+
+
