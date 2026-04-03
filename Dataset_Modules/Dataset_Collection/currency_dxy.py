@@ -5,6 +5,8 @@
 col_currency_dxy.py, creates a single-column dataset feature dataset for the US Dollar Index (DXY) data sourced from Yahoo Finance.
 """
 
+DESCRIPTION = "Collects the US Dollar Index (DXY) from Yahoo Finance."
+
 import os
 import sys
 import time

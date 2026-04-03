@@ -5,6 +5,8 @@
 col_onchain_confirmation_time.py, creates a single-column dataset feature dataset for the median Bitcoin transaction confirmation time in minutes, sourced from the Blockchain.info API.
 """
 
+DESCRIPTION = "Collects median BTC transaction confirmation time via Blockchain.info."
+
 import os
 import sys
 import pandas as pd

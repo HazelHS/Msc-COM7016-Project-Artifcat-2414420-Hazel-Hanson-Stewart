@@ -6,6 +6,8 @@ col_currency_btc_price.py, creates a single-column feature dataset for the tradi
 from Yahoo Finance.
 """
 
+DESCRIPTION = "Collects BTC/USD closing price from Yahoo Finance."
+
 import os
 import sys
 import time

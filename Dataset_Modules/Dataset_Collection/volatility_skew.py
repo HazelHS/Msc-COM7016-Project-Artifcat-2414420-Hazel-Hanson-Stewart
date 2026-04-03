@@ -5,6 +5,8 @@
 col_volatility_skew.py, creates a dataset of the CBOE SKEW Index, sourced from Yahoo Finance.
 """
 
+DESCRIPTION = "Collects the CBOE SKEW Index from Yahoo Finance."
+
 import os
 import sys
 import time

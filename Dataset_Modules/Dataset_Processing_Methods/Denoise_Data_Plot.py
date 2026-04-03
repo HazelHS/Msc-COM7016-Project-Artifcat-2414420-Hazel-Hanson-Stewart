@@ -15,6 +15,8 @@ The formula for wavelet denoising is derived from Lopez et al. (2024):
     4. Inverse wavelet transform + boundary correction.
 """
 
+DESCRIPTION = "Applies wavelet denoising and plots before/after comparison charts."
+
 import argparse
 import sys
 from pathlib import Path

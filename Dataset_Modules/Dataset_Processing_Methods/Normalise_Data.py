@@ -7,6 +7,8 @@ so every value falls in the range [0, 1], then saves the result alongside
 the original file.
 """
 
+DESCRIPTION = "Min-Max scales all numeric columns to the [0, 1] range."
+
 import argparse
 import sys
 from pathlib import Path

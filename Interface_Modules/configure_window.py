@@ -16,7 +16,7 @@ from .constants import (
     DATASET_SELECT_STAGES,
     EVAL_STAGES,
 )
-from .utils import discover_scripts, discover_csvs, discover_models
+from .utils import discover_scripts, discover_scripts_with_descriptions, discover_csvs, discover_models
 
 class ConfigureWindow: # (Anthropic, 2026)
     """Modal Toplevel presenting a scrollable checklist of .py scripts.
@@ -66,7 +66,7 @@ class ConfigureWindow: # (Anthropic, 2026)
 
         self._win = tk.Toplevel(parent)
         self._win.title(f"Configure: {stage['label_text']}")
-        self._win.resizable(False, True)
+        self._win.resizable(True, True)
         self._win.minsize(540, 280)
         self._win.grab_set()  # modal
 
@@ -344,16 +344,26 @@ class ConfigureWindow: # (Anthropic, 2026)
             return
 
         currently_selected: set[str] = self._stage.get("selected", set())
-        for script in scripts:
+        for script, description in discover_scripts_with_descriptions(self._stage["dir"]):
             var = tk.BooleanVar(value=(script in currently_selected))
             self._check_vars[script] = var
+            row = ttk.Frame(self._inner)
+            row.pack(fill="x", padx=6, pady=1)
             ttk.Checkbutton(
-                self._inner,
+                row,
                 text=script,
                 variable=var,
                 onvalue=True,
                 offvalue=False,
-            ).pack(anchor="w", padx=6, pady=1)
+            ).pack(side="left")
+            if description:
+                tk.Label(
+                    row,
+                    text=description,
+                    foreground="grey",
+                    font=("TkDefaultFont", 8),
+                    anchor="w",
+                ).pack(side="left", padx=(6, 0))
 
     # Actions 
     def _select_all(self) -> None: # (Anthropic, 2026)

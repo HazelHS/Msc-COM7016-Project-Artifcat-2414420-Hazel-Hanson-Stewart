@@ -6,6 +6,8 @@ Shared training utilities for both xLSTM-TS and MEMD-TCN training scripts, conta
 helpers for data preparation, scaling, sequence building, and DataLoader creation.
 """
 
+DESCRIPTION = "Shared data-preparation utilities used by the training scripts."
+
 import sys
 from pathlib import Path
 

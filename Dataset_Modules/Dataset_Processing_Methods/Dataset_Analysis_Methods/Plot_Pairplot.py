@@ -6,6 +6,8 @@ The Plot_Pairplot.py script generates a seaborn pairplot showing pairwise relati
 between numeric features in a dataset CSV file.
 """
 
+DESCRIPTION = "Generates a Seaborn pairplot of all numeric columns."
+
 import argparse
 import sys
 from pathlib import Path

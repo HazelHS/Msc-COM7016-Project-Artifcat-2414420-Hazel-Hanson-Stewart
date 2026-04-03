@@ -5,6 +5,8 @@
 The Check_Missing_Data.py script analyses a dataset CSV for missing values and duplicate rows.
 """
 
+DESCRIPTION = "Reports missing values per column and duplicate rows."
+
 import argparse
 import sys
 import pandas as pd

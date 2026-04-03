@@ -5,6 +5,8 @@
 col_volatility_vix.py, creates a dataset of the CBOE Volatility Index (VIX), sourced from Yahoo Finance.
 """
 
+DESCRIPTION = "Collects the CBOE Volatility Index (VIX) from Yahoo Finance."
+
 import os
 import sys
 import time

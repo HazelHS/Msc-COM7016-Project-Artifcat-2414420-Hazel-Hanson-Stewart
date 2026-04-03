@@ -7,6 +7,8 @@ CSV file, sharing the same x-axis across all sub-plots. Year markers and
 quarterly minor ticks are applied to the bottom axis.
 """
 
+DESCRIPTION = "Plots stacked time-series line charts for all numeric columns."
+
 import argparse
 import sys
 from pathlib import Path

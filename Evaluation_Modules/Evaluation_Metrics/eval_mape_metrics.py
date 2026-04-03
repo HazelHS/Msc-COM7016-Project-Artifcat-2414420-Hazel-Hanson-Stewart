@@ -15,6 +15,8 @@ scale-independent and straightforward to interpret across different assets.
 Note: samples where actual == 0 are excluded to avoid division-by-zero.
 """
 
+DESCRIPTION = "Evaluates MAPE with qualitative bands (Excellent <10%, Good 10-20%)."
+
 import argparse
 import sys
 from pathlib import Path

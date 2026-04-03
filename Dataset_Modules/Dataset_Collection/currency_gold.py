@@ -5,6 +5,8 @@
 col_currency_gold.py, creates a single-column dataset feature dataset for the Gold Futures (GC=F) closing price data sourced from Yahoo Finance.
 """
 
+DESCRIPTION = "Collects gold spot price (USD/oz) from Yahoo Finance."
+
 import os
 import sys
 import time

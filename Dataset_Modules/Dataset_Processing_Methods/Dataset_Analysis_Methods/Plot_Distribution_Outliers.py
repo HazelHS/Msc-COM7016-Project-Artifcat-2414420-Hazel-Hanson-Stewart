@@ -7,6 +7,8 @@ in a dataset CSV, overlaying red scatter points for values that are more
 than 3 standard deviations from the column mean.
 """
 
+DESCRIPTION = "Plots data distributions with violin charts and outlier scatter points."
+
 import argparse
 import sys
 from pathlib import Path

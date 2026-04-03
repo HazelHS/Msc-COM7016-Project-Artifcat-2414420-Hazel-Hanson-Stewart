@@ -18,7 +18,7 @@ from tkinter import ttk, scrolledtext
 import pandas as pd
 
 from .constants import DATASET_OUTPUT_DIR, ROOT_DIR
-from .utils import discover_scripts, discover_csvs
+from .utils import discover_scripts, discover_scripts_with_descriptions, discover_csvs
 
 class FeatureSelectionWindow: # (Anthropic, 2026)
     """Toplevel window for running feature-selection scripts.
@@ -190,12 +190,22 @@ class FeatureSelectionWindow: # (Anthropic, 2026)
             ).pack(anchor="w", pady=4, padx=4)
             return
 
-        for script in scripts:
+        for script, description in discover_scripts_with_descriptions(self._dir):
             var = tk.BooleanVar(value=False)
             self._check_vars[script] = var
+            row = ttk.Frame(self._inner)
+            row.pack(fill="x", padx=6, pady=1)
             ttk.Checkbutton(
-                self._inner, text=script, variable=var, onvalue=True, offvalue=False
-            ).pack(anchor="w", padx=6, pady=1)
+                row, text=script, variable=var, onvalue=True, offvalue=False
+            ).pack(side="left")
+            if description:
+                tk.Label(
+                    row,
+                    text=description,
+                    foreground="grey",
+                    font=("TkDefaultFont", 8),
+                    anchor="w",
+                ).pack(side="left", padx=(6, 0))
 
         self._canvas.update_idletasks()
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))

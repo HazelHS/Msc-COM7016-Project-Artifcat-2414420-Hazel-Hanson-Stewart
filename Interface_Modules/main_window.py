@@ -26,7 +26,7 @@ from .constants import (
     DATASET_SELECT_STAGES,
     EVAL_STAGES,
 )
-from .utils import discover_scripts, discover_csvs
+from .utils import discover_scripts, read_script_description, discover_csvs
 from .configure_window import ConfigureWindow
 from .analysis_window import AnalysisWindow
 from .process_dataset_window import ProcessDatasetWindow
@@ -163,15 +163,26 @@ class MainWindow: # (Anthropic, 2026)
                     stage["run_btn"] = run_btn
 
             else:
-                # Single-select: Combobox
+                # Single-select: Combobox + grey description label
                 var = tk.StringVar()
+                vcell = ttk.Frame(selector_panel)
+                vcell.grid(row=row_idx, column=1, sticky="ew", pady=3)
+                vcell.columnconfigure(0, weight=1)
                 combo = ttk.Combobox(
-                    selector_panel, textvariable=var, state="readonly", width=40
+                    vcell, textvariable=var, state="readonly", width=40
                 )
-                combo.grid(row=row_idx, column=1, sticky="ew", pady=3)
+                combo.grid(row=0, column=0, sticky="ew")
+                desc_var = tk.StringVar(value="")
+                tk.Label(
+                    vcell,
+                    textvariable=desc_var,
+                    foreground="grey",
+                    font=("TkDefaultFont", 8),
+                    anchor="w",
+                ).grid(row=1, column=0, sticky="ew")
 
                 stage = {"multi": False, "var": var, "combo": combo,
-                         "dir": abs_dir, "diagram_btn": None}
+                         "dir": abs_dir, "desc_var": desc_var, "diagram_btn": None}
 
                 if diagram_rel:
                     # Optional "Create Diagram" button
@@ -284,11 +295,12 @@ class MainWindow: # (Anthropic, 2026)
 
         Scans the stage's configured directory for Python scripts and updates
         the combobox values. Resets the selection to the first available script
-        if the current value is no longer present on disk.
+        if the current value is no longer present on disk. Also updates the
+        grey description label for the currently selected script.
 
         Args:
             stage: A single-select stage dict containing ``combo``, ``var``,
-                and ``dir`` keys.
+                ``desc_var``, and ``dir`` keys.
         """
         scripts = discover_scripts(stage["dir"])
         stage["combo"]["values"] = scripts
@@ -297,6 +309,21 @@ class MainWindow: # (Anthropic, 2026)
                 stage["var"].set(scripts[0])
         else:
             stage["var"].set("")
+        # Update description label for current selection
+        if "desc_var" in stage:
+            sel = stage["var"].get()
+            stage["desc_var"].set(
+                read_script_description(os.path.join(stage["dir"], sel)) if sel else ""
+            )
+        # Bind selection change once; refresh description on each change
+        if "desc_var" in stage and not stage.get("_desc_bound"):
+            stage["_desc_bound"] = True
+            def _on_select(_e, s=stage):
+                sel = s["var"].get()
+                s["desc_var"].set(
+                    read_script_description(os.path.join(s["dir"], sel)) if sel else ""
+                )
+            stage["combo"].bind("<<ComboboxSelected>>", _on_select)
 
     def _refresh_all(self) -> None: # (Anthropic, 2026)
         """Re-scan all stage directories and update script lists.

@@ -8,6 +8,8 @@ This script should be run in the Model Designer in the AI Training Method, all h
 populated by the TrainingConfigureWindow in Interface_Modules/main_window.py (xLSTM-TS panel).
 """
 
+DESCRIPTION = "Self-contained training script for the xLSTM-TS model."
+
 import sys
 import argparse
 from pathlib import Path
@@ -70,18 +72,18 @@ def prepare_data(
     print(f"Input shape : {df.shape}")
     print(f"Columns     : {df.columns.tolist()}")
 
+    # Feature columns = everything except target and unnamed index artefacts
+    feature_columns = [
+        c for c in df.columns if c not in (target_col, "Unnamed: 0")
+    ]
+    print(f"Feature columns ({len(feature_columns)}): {feature_columns}")
+    
     # Guard: need at least a target column + one feature
     if len(df.columns) <= 1:
         df = df.copy()
         df["prev_price"] = df[target_col].shift(1)
         df = df.dropna()
         print("Added lagged target as a synthetic feature.")
-
-    # Feature columns = everything except target and unnamed index artefacts
-    feature_columns = [
-        c for c in df.columns if c not in (target_col, "Unnamed: 0")
-    ]
-    print(f"Feature columns ({len(feature_columns)}): {feature_columns}")
 
     # Temporal split 
     train_df, val_df, test_df = temporal_train_val_test_split(df, split_ratios)

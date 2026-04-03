@@ -6,6 +6,8 @@ col_currency_gold_btc_ratio.py, creates a single-column dataset feature dataset 
 BTC/USD closing prices, sourced from Yahoo Finance.
 """
 
+DESCRIPTION = "Derives the Gold-to-BTC price ratio from Yahoo Finance data."
+
 import os
 import sys
 import time

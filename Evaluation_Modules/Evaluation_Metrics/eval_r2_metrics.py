@@ -20,6 +20,8 @@ inference on the test split, then displays a gauge-style bar chart of R²:
     R² < 0     — model is worse than predicting the mean
 """
 
+DESCRIPTION = "Evaluates R² (Coefficient of Determination); higher is better."
+
 import argparse
 import sys
 from pathlib import Path

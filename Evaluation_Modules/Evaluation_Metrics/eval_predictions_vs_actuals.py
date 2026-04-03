@@ -11,6 +11,8 @@ displaying an overlaid line chart comparing:
 A sample of up to 200 test-set steps is shown for visual clarity.
 """
 
+DESCRIPTION = "Plots predicted vs actual values with shaded error area (up to 200 samples)."
+
 import argparse
 import sys
 from pathlib import Path

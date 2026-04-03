@@ -9,6 +9,8 @@ The interactive matplotlib window includes a save button (floppy-disk
 icon) in the toolbar.
 """
 
+DESCRIPTION = "Displays a heatmap of pairwise column correlations."
+
 import argparse
 import sys
 from pathlib import Path

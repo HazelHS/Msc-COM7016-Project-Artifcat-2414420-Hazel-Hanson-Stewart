@@ -11,6 +11,8 @@ MSE penalises large errors more heavily than MAE because errors are squared
 before being averaged, making it sensitive to outliers.
 """
 
+DESCRIPTION = "Evaluates Mean Squared Error (MSE) for model predictions."
+
 import argparse
 import sys
 from pathlib import Path

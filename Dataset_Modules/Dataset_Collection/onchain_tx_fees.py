@@ -5,6 +5,8 @@
 col_onchain_tx_fees.py, creates a dataset of the daily total Bitcoin transaction fees, sourced from the Blockchain.info API.
 """
 
+DESCRIPTION = "Collects daily Bitcoin transaction fees via Blockchain.info."
+
 import os
 import sys
 import pandas as pd

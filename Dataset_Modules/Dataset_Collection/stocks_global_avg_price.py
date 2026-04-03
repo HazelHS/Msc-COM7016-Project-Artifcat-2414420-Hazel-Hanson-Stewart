@@ -5,6 +5,8 @@
 col_stocks_global_avg_price.py, creates a dataset of the global average stock price in USD, sourced from Yahoo Finance.
 """
 
+DESCRIPTION = "Collects an average global stock index closing price via Yahoo Finance."
+
 import os
 import sys
 import pandas as pd

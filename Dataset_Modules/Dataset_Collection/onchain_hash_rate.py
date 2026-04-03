@@ -5,6 +5,8 @@
 col_onchain_hash_rate.py, creates a dataset of the Bitcoin network hash rate, sourced from the Blockchain.info API.
 """
 
+DESCRIPTION = "Collects Bitcoin network hash rate via Blockchain.info."
+
 import os
 import sys
 import pandas as pd

@@ -6,6 +6,8 @@ The Check_Data_Outliers.py script detects and reports statistical outliers in a 
 Inter-Quartile Range (IQR) method.
 """
 
+DESCRIPTION = "Reports column-level outliers using the IQR method."
+
 import argparse
 import sys
 import pandas as pd

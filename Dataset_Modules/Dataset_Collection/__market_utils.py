@@ -82,12 +82,34 @@ def fetch_index(
         fx_raw = yf.download(currency_pair, start=start_date, end=end_date,
                              interval=interval, progress=False)
         fx_raw = _strip_tz(fx_raw)
+
+        # If intraday FX data isn't available at the requested interval,
+        # fall back to daily FX and align timestamps. This handles cases
+        # where yfinance does not return intraday FX history for the
+        # requested window but daily FX rates are available.
+        intraday_intervals = {"1m", "2m", "5m", "15m", "30m", "90m", "1h"}
+        if fx_raw.empty and interval in intraday_intervals:
+            time.sleep(RATE_LIMIT_TIMEOUT)
+            fx_raw = yf.download(currency_pair, start=start_date, end=end_date,
+                                 interval="1d", progress=False)
+            fx_raw = _strip_tz(fx_raw)
+
         if fx_raw.empty:
             return pd.DataFrame(index=date_range)
 
         fx_rate = fx_raw["Close"].squeeze()
         result.index  = pd.to_datetime(result.index)
         fx_rate.index = pd.to_datetime(fx_rate.index)
+
+        # Reindex FX series to match result timestamps. Prefer forward-fill
+        # followed by back-fill so intraday timestamps receive the nearest
+        # available daily FX rate. If alignment still yields only NaNs then
+        # abort the download for this symbol.
+        if not fx_rate.index.equals(result.index):
+            fx_rate = fx_rate.reindex(result.index, method="ffill").bfill()
+
+        if fx_rate.isna().all():
+            return pd.DataFrame(index=date_range)
 
         common = result.index.intersection(fx_rate.index)
         result  = result.loc[common]
@@ -103,8 +125,16 @@ def fetch_index(
     # Sanity checks 
     if result["Close"].max() > 50_000 or result["Close"].min() < 1:
         return pd.DataFrame(index=date_range)
-    if result["Volume"].min() == 0 or result["Volume"].max() / result["Volume"].min() > 1_000:
-        return pd.DataFrame(index=date_range)
+    # Relax volume-based sanity checks for intraday intervals and index
+    # symbols (which often have missing or zero volume). Apply the stricter
+    # checks only for non-intraday, non-index symbols.
+    intraday_intervals = {"1m", "2m", "5m", "15m", "30m", "90m", "1h"}
+    is_intraday = interval in intraday_intervals
+    is_index = symbol.startswith("^")
+
+    if not is_intraday and not is_index:
+        if result["Volume"].min() == 0 or result["Volume"].max() / result["Volume"].min() > 1_000:
+            return pd.DataFrame(index=date_range)
 
     result = result.rename(columns={
         "Close":  f"{symbol}_Close_USD",

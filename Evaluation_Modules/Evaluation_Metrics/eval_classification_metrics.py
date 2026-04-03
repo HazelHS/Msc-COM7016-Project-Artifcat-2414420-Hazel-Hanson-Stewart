@@ -9,6 +9,8 @@ eval_classification_metrics.py script produces Directional Classification Metric
     F1 Score: harmonic mean of Precision and Recall
 """
 
+DESCRIPTION = "Evaluates directional accuracy, precision, recall and F1 score."
+
 import argparse
 import sys
 from pathlib import Path

@@ -9,6 +9,8 @@ empirical mode decomposition and temporal convolutional networks", Rehman & Mand
 "An empirical evaluation of generic convolutional and recurrent networks for sequence modeling"
 """
 
+DESCRIPTION = "MEMD-TCN model combining multivariate EMD decomposition with TCN layers."
+
 import sys
 from pathlib import Path
 

@@ -6,6 +6,8 @@ The Plot_Missing_Values_Heatmap.py script generates a heatmap highlighting missi
 in a dataset CSV file and opens it in an interactive window.
 """
 
+DESCRIPTION = "Displays a heatmap of missing-value locations across all columns."
+
 import argparse
 import sys
 from pathlib import Path

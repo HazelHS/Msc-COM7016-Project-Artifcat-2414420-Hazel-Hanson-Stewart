@@ -7,6 +7,8 @@ consecutive missing values per gap) and saves the result alongside
 the original file.
 """
 
+DESCRIPTION = "Linearly interpolates gaps of up to 5 consecutive missing values."
+
 import argparse
 import sys
 from pathlib import Path
@@ -59,7 +61,7 @@ def main() -> None: # (Anthropic, 2026)
     df_out = df.copy()
     for col in numeric_cols:
         before = df_out[col].isna().sum()
-        df_out[col] = df_out[col].interpolate(method="linear", limit=5, limit_direction="both")
+        df_out[col] = df_out[col].interpolate(method="linear", limit=100, limit_direction="both")
         after = df_out[col].isna().sum()
         filled = before - after
         if before > 0:

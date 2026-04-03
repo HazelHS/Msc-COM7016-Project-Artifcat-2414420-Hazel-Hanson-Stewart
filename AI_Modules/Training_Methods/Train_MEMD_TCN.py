@@ -7,6 +7,8 @@ This script should be run from the Model Designer in the AI Training Method, all
 populated by the TrainingConfigureWindow in Interface_Modules/main_window.py (MEMD-TCN panel).
 """
 
+DESCRIPTION = "Self-contained training script for the MEMD-TCN model."
+
 import sys
 import argparse
 from pathlib import Path

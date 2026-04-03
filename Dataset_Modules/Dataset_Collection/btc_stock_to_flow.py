@@ -7,6 +7,8 @@ Bitcoin, based on the total supply and halving schedule. The S2F model is a popu
 that relates scarcity (stock) to new supply (flow) to estimate Bitcoin's value.
 """
 
+DESCRIPTION = "Derives the Bitcoin Stock-to-Flow model value from halving data."
+
 import os
 import sys
 import requests

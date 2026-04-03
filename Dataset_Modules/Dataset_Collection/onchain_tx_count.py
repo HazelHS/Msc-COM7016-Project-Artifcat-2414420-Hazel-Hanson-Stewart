@@ -5,6 +5,8 @@
 col_onchain_tx_count.py, creates a dataset of the daily Bitcoin transaction count, sourced from the Blockchain.info API.
 """
 
+DESCRIPTION = "Collects daily Bitcoin transaction count via Blockchain.info."
+
 import os
 import sys
 import pandas as pd

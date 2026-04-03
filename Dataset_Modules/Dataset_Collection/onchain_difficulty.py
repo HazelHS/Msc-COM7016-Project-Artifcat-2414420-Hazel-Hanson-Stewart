@@ -5,6 +5,8 @@
 col_onchain_difficulty.py, creates a single-column dataset feature dataset for the Bitcoin mining difficulty, sourced from the Blockchain.info API.
 """
 
+DESCRIPTION = "Collects Bitcoin mining difficulty via Blockchain.info."
+
 import os
 import sys
 import pandas as pd

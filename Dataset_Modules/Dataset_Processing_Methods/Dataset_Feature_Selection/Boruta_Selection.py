@@ -8,6 +8,8 @@ normalised importance score (relative to the maximum), and those at or
 above the configurable threshold are retained.
 """
 
+DESCRIPTION = "Selects features using the Boruta algorithm with a Random Forest base."
+
 import argparse
 import sys
 import warnings

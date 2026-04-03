@@ -9,6 +9,8 @@ displays a bar chart of regression error metrics:
     RMSE — Root Mean Squared Error  (lower is better)
 """
 
+DESCRIPTION = "Evaluates MAE and RMSE regression error metrics."
+
 import argparse
 import sys
 from pathlib import Path

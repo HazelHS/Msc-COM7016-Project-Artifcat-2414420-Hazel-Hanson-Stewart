@@ -10,6 +10,8 @@ Cross-validation (LassoCV) is used by default to find the optimal
 regularisation strength alpha automatically.
 """
 
+DESCRIPTION = "Selects features via cross-validated LASSO regularisation."
+
 import argparse
 import sys
 import warnings

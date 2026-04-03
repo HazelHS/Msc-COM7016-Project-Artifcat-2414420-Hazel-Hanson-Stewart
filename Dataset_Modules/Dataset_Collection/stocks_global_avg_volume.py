@@ -5,6 +5,8 @@
 col_stocks_global_avg_volume.py, creates a dataset of the global average stock trading volume, sourced from Yahoo Finance.
 """
 
+DESCRIPTION = "Collects average global stock index trading volume via Yahoo Finance."
+
 import os
 import sys
 import pandas as pd

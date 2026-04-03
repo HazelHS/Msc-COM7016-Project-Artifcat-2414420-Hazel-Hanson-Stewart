@@ -17,6 +17,8 @@ Colour zones:
     Red: 2 - 10  (poor range)
 """
 
+DESCRIPTION = "Evaluates MASE; a score < 1 indicates the model beats a naive forecast."
+
 import argparse
 import sys
 from pathlib import Path

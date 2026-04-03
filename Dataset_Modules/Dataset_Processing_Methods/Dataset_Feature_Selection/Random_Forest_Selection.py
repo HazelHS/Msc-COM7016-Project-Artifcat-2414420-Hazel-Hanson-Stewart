@@ -10,6 +10,8 @@ The 75th-percentile of mean importance is used as the selection threshold
 (top 25 % most important features).
 """
 
+DESCRIPTION = "Ranks features by permutation importance using a Random Forest regressor."
+
 import argparse
 import sys
 import time

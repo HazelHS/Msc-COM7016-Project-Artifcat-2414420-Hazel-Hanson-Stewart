@@ -6,6 +6,8 @@
 col_onchain_active_addresses.py, creates a single-column dataset feature dataset for the count of unique active Bitcoin addresses, sourced from the Blockchain.info API.
 """
 
+DESCRIPTION = "Collects unique active Bitcoin address count via Blockchain.info."
+
 import os
 import sys
 import pandas as pd

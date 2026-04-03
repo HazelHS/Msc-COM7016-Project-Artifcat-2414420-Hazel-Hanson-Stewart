@@ -5,6 +5,8 @@
 col_volatility_ovx.py, creates a dataset of the CBOE Crude Oil Volatility Index (OVX), sourced from Yahoo Finance.
 """
 
+DESCRIPTION = "Collects the CBOE Crude Oil Volatility Index (OVX) via Yahoo Finance."
+
 import os
 import sys
 import time

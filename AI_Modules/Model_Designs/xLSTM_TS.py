@@ -13,6 +13,8 @@ LSTM layer with ELU exponential gating and dual projection) and xLSTM_TS_Model (
 attention-weighted temporal aggregation).
 """
 
+DESCRIPTION = "xLSTM-TS forecasting model (mLSTM/sLSTM blocks with attention aggregation)."
+
 import sys
 from pathlib import Path
 

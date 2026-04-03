@@ -19,7 +19,7 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext
 
 from .constants import DATASET_OUTPUT_DIR, ROOT_DIR
-from .utils import discover_scripts, discover_csvs
+from .utils import discover_scripts, discover_scripts_with_descriptions, discover_csvs
 
 class ProcessDatasetWindow: # (Anthropic, 2026)
     """Toplevel window for the Dataset Processing Method pipeline stage."""
@@ -168,13 +168,23 @@ class ProcessDatasetWindow: # (Anthropic, 2026)
             return
 
         currently_selected: set[str] = self._stage.get("selected", set())
-        for script in scripts:
+        for script, description in discover_scripts_with_descriptions(self._dir):
             var = tk.BooleanVar(value=(script in currently_selected))
             self._check_vars[script] = var
+            row = ttk.Frame(self._inner)
+            row.pack(fill="x", padx=6, pady=1)
             ttk.Checkbutton(
-                self._inner, text=script, variable=var,
+                row, text=script, variable=var,
                 onvalue=True, offvalue=False,
-            ).pack(anchor="w", padx=6, pady=1)
+            ).pack(side="left")
+            if description:
+                tk.Label(
+                    row,
+                    text=description,
+                    foreground="grey",
+                    font=("TkDefaultFont", 8),
+                    anchor="w",
+                ).pack(side="left", padx=(6, 0))
 
         self._canvas.update_idletasks()
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))
