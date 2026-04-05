@@ -6,7 +6,7 @@ The eval_r2_metrics.py script evaluates the R-squared (R²) coefficient of
 determination and loads a trained model checkpoint and a dataset CSV, runs
 inference on the test split, then displays a gauge-style bar chart of R²:
 
-    R² — Coefficient of Determination (higher is better, range ≤ 1)
+    R² — Coefficient of Determination (higher is better, range <= 1)
 
     R² = 1 - SS_res / SS_tot
         where SS_res = Σ(actual - predicted)²
@@ -16,7 +16,7 @@ inference on the test split, then displays a gauge-style bar chart of R²:
     R² > 0.9   — excellent
     R² > 0.7   — good
     R² > 0.5   — fair
-    R² ≤ 0.5   — poor
+    R² <= 0.5   — poor
     R² < 0     — model is worse than predicting the mean
 """
 
@@ -107,16 +107,16 @@ def main() -> None:  # (Anthropic, 2026)
 
     # Qualitative rating
     if r2 >= 0.9:
-        rating    = "Excellent  (R² ≥ 0.9)"
+        rating    = "Excellent  (R² => 0.9)"
         bar_color = "forestgreen"
     elif r2 >= 0.7:
-        rating    = "Good  (0.7 ≤ R² < 0.9)"
+        rating    = "Good  (0.7 <= R² < 0.9)"
         bar_color = "steelblue"
     elif r2 >= 0.5:
-        rating    = "Fair  (0.5 ≤ R² < 0.7)"
+        rating    = "Fair  (0.5 <= R² < 0.7)"
         bar_color = "goldenrod"
     elif r2 >= 0.0:
-        rating    = "Poor  (0 ≤ R² < 0.5)"
+        rating    = "Poor  (0.0 <= R² < 0.5)"
         bar_color = "tomato"
     else:
         rating    = "Very Poor  (R² < 0, worse than mean predictor)"
