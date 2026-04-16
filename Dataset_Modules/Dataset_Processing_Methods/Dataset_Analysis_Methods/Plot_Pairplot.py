@@ -97,6 +97,17 @@ def main() -> None: # (Anthropic, 2026)
     pair_grid.figure.suptitle(title, y=1.02, fontsize=20)
     plt.tight_layout()
 
+    # Console summary of pairplot selection
+    try:
+        cols = list(plot_df.columns)
+        print("\nPairplot summary:")
+        print(f"  Columns plotted ({len(cols)}): {cols}")
+        if n_cols > 10:
+            dropped = [c for c in numeric_df.columns if c not in cols]
+            print(f"  Dropped due to high correlation or cap: {dropped if dropped else 'None'}")
+    except Exception as exc:
+        print(f"[WARNING] Could not compute pairplot summary: {exc}", file=sys.stderr)
+
     # Optional auto-save 
     if args.output_dir:
         out_dir = Path(args.output_dir)

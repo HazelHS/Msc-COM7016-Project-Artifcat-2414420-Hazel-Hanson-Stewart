@@ -87,6 +87,19 @@ def main() -> None: # (Anthropic, 2026)
 
     plt.tight_layout()
 
+    # Console summary of outliers
+    try:
+        outlier_counts = {
+            col: int(((numeric_df[col] - numeric_df[col].mean()).abs() > (3 * numeric_df[col].std())).sum())
+            for col in numeric_df.columns
+        }
+        outlier_series = pd.Series(outlier_counts).sort_values(ascending=False)
+        print("\nOutlier summary (counts of |value - mean| > 3*std):")
+        print(outlier_series.to_string())
+        print(f"Total outliers detected: {int(outlier_series.sum())}")
+    except Exception as exc:
+        print(f"[WARNING] Could not compute outlier summary: {exc}", file=sys.stderr)
+
     # Optional auto-save 
     if args.output_dir:
         out_dir = Path(args.output_dir)

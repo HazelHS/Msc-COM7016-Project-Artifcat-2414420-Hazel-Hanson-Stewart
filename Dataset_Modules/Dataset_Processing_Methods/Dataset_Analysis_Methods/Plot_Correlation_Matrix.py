@@ -66,6 +66,28 @@ def main() -> None: # (Anthropic, 2026)
     sns.set(font_scale=0.8)
 
     corr = numeric_df.corr()
+    # Console summary: top absolute correlations (unique pairs)
+    try:
+        corr_abs = corr.abs().copy()
+        # Ensure we have a writable numpy array before modifying the diagonal
+        arr = corr_abs.to_numpy(copy=True)
+        np.fill_diagonal(arr, 0)
+        corr_abs = pd.DataFrame(arr, index=corr_abs.index, columns=corr_abs.columns)
+
+        pairs = corr_abs.where(np.triu(np.ones(corr_abs.shape), k=1).astype(bool)).stack().sort_values(ascending=False)
+        print("\nTop correlated feature pairs (abs, top 10):")
+        if not pairs.empty:
+            for (a, b), val in pairs.head(10).items():
+                print(f"- {a} & {b}: {val:.2f}")
+            strong = pairs[pairs >= 0.8]
+            if not strong.empty:
+                print(f"\nStrong correlations (|r| >= 0.80): {len(strong)}")
+                for (a, b), val in strong.items():
+                    print(f"- {a} & {b}: {val:.2f}")
+        else:
+            print("  No pairwise correlations found.")
+    except Exception as exc:
+        print(f"[WARNING] Could not compute correlation summary: {exc}", file=sys.stderr)
     mask = np.triu(np.ones_like(corr, dtype=bool))
     cmap = sns.diverging_palette(230, 20, as_cmap=True)
 
