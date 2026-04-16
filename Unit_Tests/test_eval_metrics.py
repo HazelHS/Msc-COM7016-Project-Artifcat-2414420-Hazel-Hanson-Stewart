@@ -18,7 +18,7 @@ Covers:
 import numpy as np
 import pytest
 from sklearn.metrics import accuracy_score
-from eval_utils import calculate_mase
+from __eval_utils import calculate_mase
 
 # calculate_mase
 class TestCalculateMase: # (Anthropic, 2026)
