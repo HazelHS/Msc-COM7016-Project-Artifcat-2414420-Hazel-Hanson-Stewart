@@ -1,5 +1,13 @@
-Google Python Style Guide - https://google.github.io/styleguide/pyguide.html 
 Anthropic. (2026). Claude sonnet 4.6. Retrieved 2026, from anthropic: https://www.anthropic.com/claude/sonnet
+Bai, S., Kolter, J. Z., & Koltun, V. (2018). An Empirical Evaluation of Generic Convolutional and Recurrent Networks for Sequence Modeling. arXiv.
+Conventional Commits. (2025). https://www.conventionalcommits.org/en/v1.0.0/#summary. Retrieved from https://www.conventionalcommits.org: https://www.conventionalcommits.org/en/v1.0.0/#summary
+Gil, G. L., Duhamel-Sebline , P., & McCarren, A. (2024). An Evaluation of Deep Learning Models for Stock Market Trend Prediction. eprint arXiv:2408.12408.
+Google Python Style Guide - https://google.github.io/styleguide/pyguide.html
 OpenAI. (2026). ChatGPT 4.1. Retrieved 2026, from OpenAI: https://openai.com/index/gpt-4-1/
-conventional commits. (2025). https://www.conventionalcommits.org/en/v1.0.0/#summary. Retrieved from https://www.conventionalcommits.org: https://www.conventionalcommits.org/en/v1.0.0/#summary
-# (Anthropic, 2026)
+Rehman, N. u., & Mandic, D. P. (2009). Multivariate empirical mode decomposition. Proc R Soc Am 466A:1291-1302. Proceedings of the Royal Society A, 466(2117), 1291-1302.
+Yao, Y., Zhang, Z.-y., & Zhao, Y. (2023). Stock index forecasting based on multivariate empirical mode decomposition and temporal convolutional networks. Applied Soft Computing, 142(110356).
+
+
+
+
+
