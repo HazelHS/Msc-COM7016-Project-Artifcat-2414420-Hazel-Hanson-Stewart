@@ -18,10 +18,14 @@ boruta              # Wrapper feature-selection algorithm for identifying releva
 visualkeras         # Simple visualization of Keras/PyTorch model architectures for documentation and debugging.
 pydot               # Graphviz bindings for rendering model/flow diagrams (used with packages that output DOT).
 pillow              # Image I/O and basic image processing (saving/annotating plots or model visualizations).
-                    # "torch" is PyTorch core (deep learning models), torchvision for image datasets/models, torchaudio for audio processing—included if deep models or pretrained components are used.
-torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
-torchviz            # Visualize PyTorch computation graphs to inspect model structure and forward/backward flows.
 
+torchviz            # Visualize PyTorch computation graphs to inspect model structure and forward/backward flows. 
+graphviz            # Only use if "torchviz" cannot be found (working alternative).
 
+# "torch" is PyTorch core (deep learning models), torchvision for image datasets/models, torchaudio for audio processing—included if deep models or pretrained components are used.
 
+--index-url https://download.pytorch.org/whl/cu126
+torch
+torchvision
+torchaudio
 
